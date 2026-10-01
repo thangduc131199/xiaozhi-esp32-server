@@ -6,6 +6,7 @@ from typing import Dict, Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from core.connection import ConnectionHandler
 
+from core.utils import i18n
 from core.utils.dialogue import Message
 from core.providers.asr.dto.dto import InterfaceType
 from core.handle.receiveAudioHandle import startToChat
@@ -13,7 +14,7 @@ from core.handle.reportHandle import enqueue_asr_report
 from core.handle.sendAudioHandle import send_stt_message, send_tts_message
 from core.handle.textMessageHandler import TextMessageHandler
 from core.handle.textMessageType import TextMessageType
-from core.utils.util import remove_punctuation_and_length
+from core.utils.util import match_command
 from core.providers.tts.dto.dto import ContentType, TTSMessageDTO, SentenceType
 
 
@@ -30,7 +31,7 @@ class ListenTextMessageHandler(TextMessageHandler):
         if "mode" in msg_json:
             conn.client_listen_mode = msg_json["mode"]
             conn.logger.bind(tag=TAG).debug(
-                f"客户端拾音模式：{conn.client_listen_mode}"
+                f"Client listen mode: {conn.client_listen_mode}"
             )
         if msg_json["state"] == "start":
             # 设备从播放模式切回录音模式,清除所有音频状态和缓冲区
@@ -58,15 +59,12 @@ class ListenTextMessageHandler(TextMessageHandler):
             if "text" in msg_json:
                 conn.last_activity_time = time.time() * 1000
                 original_text = msg_json["text"]  # 保留原始文本
-                filtered_len, filtered_text = remove_punctuation_and_length(
-                    original_text
-                )
 
                 # 检查是否是设备呼叫指令 [device_call]
                 if original_text.startswith("[device_call]"):
                     # 提取 tag 后的文本
                     call_text = original_text[len("[device_call]"):].strip()
-                    conn.logger.bind(tag=TAG).info(f"收到设备呼叫指令: {call_text}")
+                    conn.logger.bind(tag=TAG).info(f"Received device call command: {call_text}")
 
                     # 标记为来电接听模式
                     conn.incoming_call = True
@@ -94,7 +92,7 @@ class ListenTextMessageHandler(TextMessageHandler):
                     return
 
                 # 识别是否是唤醒词
-                is_wakeup_words = filtered_text in conn.config.get("wakeup_words")
+                is_wakeup_words = match_command(original_text, conn.config.get("wakeup_words"))
                 # 是否开启唤醒词回复
                 enable_greeting = conn.config.get("enable_greeting", True)
 
@@ -106,8 +104,9 @@ class ListenTextMessageHandler(TextMessageHandler):
                 elif is_wakeup_words:
                     conn.just_woken_up = True
                     # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）
-                    enqueue_asr_report(conn, "嘿，你好呀", [])
-                    await startToChat(conn, "嘿，你好呀")
+                    greeting = i18n.t(conn.config, "wakeup_greeting")
+                    enqueue_asr_report(conn, greeting, [])
+                    await startToChat(conn, greeting)
                 else:
                     conn.just_woken_up = True
                     # 上报纯文字数据（复用ASR上报功能，但不提供音频数据）

@@ -91,6 +91,7 @@ class TTSProviderBase(ABC):
             "；",
             ";",
             "：",
+            ".",
         )
         self.first_sentence_punctuations = (
             "，",
@@ -105,6 +106,7 @@ class TTSProviderBase(ABC):
             "；",
             ";",
             "：",
+            ".",
         )
         self.tts_stop_request = False
         self.processed_chars = 0
@@ -117,7 +119,7 @@ class TTSProviderBase(ABC):
         )
 
     def handle_opus(self, opus_data: bytes):
-        logger.bind(tag=TAG).debug(f"推送数据到队列里面帧数～～ {len(opus_data)}")
+        logger.bind(tag=TAG).debug(f"Pushed frames to queue ~~ {len(opus_data)}")
         self.tts_audio_queue.put((SentenceType.MIDDLE, opus_data, None, getattr(self, 'current_sentence_id', None)))
 
     def handle_audio_file(self, file_audio: bytes, text):
@@ -152,16 +154,16 @@ class TTSProviderBase(ABC):
                         max_repeat_time -= 1
                 except Exception as e:
                     logger.bind(tag=TAG).warning(
-                        f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                        f"Speech generation failed {5 - max_repeat_time + 1} times: {original_text}, error: {e}"
                     )
                     max_repeat_time -= 1
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"Speech generated: {original_text}, retries: {5 - max_repeat_time}"
                 )
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"Speech generation failed: {original_text}, check the network or service"
                 )
             return None
         else:
@@ -172,7 +174,7 @@ class TTSProviderBase(ABC):
                         asyncio.run(self.text_to_speak(text, tmp_file))
                     except Exception as e:
                         logger.bind(tag=TAG).warning(
-                            f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                            f"Speech generation failed {5 - max_repeat_time + 1} times: {original_text}, error: {e}"
                         )
                         # 未执行成功，删除文件
                         if os.path.exists(tmp_file):
@@ -181,11 +183,11 @@ class TTSProviderBase(ABC):
 
                 if max_repeat_time > 0:
                     logger.bind(tag=TAG).info(
-                        f"语音生成成功: {original_text}:{tmp_file}，重试{5 - max_repeat_time}次"
+                        f"Speech generated: {original_text}:{tmp_file}, retries: {5 - max_repeat_time}"
                     )
                 else:
                     logger.bind(tag=TAG).error(
-                        f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                        f"Speech generation failed: {original_text}, check the network or service"
                     )
                 self.tts_audio_queue.put((SentenceType.FIRST, None, original_text, getattr(self, 'current_sentence_id', None)))
                 self._process_audio_file_stream(tmp_file, callback=opus_handler)
@@ -219,16 +221,16 @@ class TTSProviderBase(ABC):
                         max_repeat_time -= 1
                 except Exception as e:
                     logger.bind(tag=TAG).warning(
-                        f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                        f"Speech generation failed {5 - max_repeat_time + 1} times: {original_text}, error: {e}"
                     )
                     max_repeat_time -= 1
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"Speech generated: {original_text}, retries: {5 - max_repeat_time}"
                 )
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"Speech generation failed: {original_text}, check the network or service"
                 )
             return None
         else:
@@ -239,7 +241,7 @@ class TTSProviderBase(ABC):
                         asyncio.run(self.text_to_speak(text, tmp_file))
                     except Exception as e:
                         logger.bind(tag=TAG).warning(
-                            f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                            f"Speech generation failed {5 - max_repeat_time + 1} times: {original_text}, error: {e}"
                         )
                         # 未执行成功，删除文件
                         if os.path.exists(tmp_file):
@@ -248,11 +250,11 @@ class TTSProviderBase(ABC):
 
                 if max_repeat_time > 0:
                     logger.bind(tag=TAG).info(
-                        f"语音生成成功: {original_text}:{tmp_file}，重试{5 - max_repeat_time}次"
+                        f"Speech generated: {original_text}:{tmp_file}, retries: {5 - max_repeat_time}"
                     )
                 else:
                     logger.bind(tag=TAG).error(
-                        f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                        f"Speech generation failed: {original_text}, check the network or service"
                     )
 
                 return tmp_file
@@ -292,7 +294,7 @@ class TTSProviderBase(ABC):
                 sentence_id = str(uuid.uuid4().hex)
                 conn.sentence_id = sentence_id
         # 对于单句的文本，进行分段处理
-        segments = re.split(r"([。！？!?；;\n])", content_detail)
+        segments = re.split(r"([。！？!?；;\n]|\.(?=\s))", content_detail)
         for seg in segments:
             self.tts_text_queue.put(
                 TTSMessageDTO(
@@ -373,7 +375,7 @@ class TTSProviderBase(ABC):
             try:
                 message = self.tts_text_queue.get(timeout=1)
                 if self.conn.client_abort:
-                    logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
+                    logger.bind(tag=TAG).info("Received interrupt, stopping TTS text processing thread")
                     continue
                 # 过滤旧消息：检查sentence_id是否匹配
                 if message.sentence_id != self.conn.sentence_id:
@@ -407,7 +409,7 @@ class TTSProviderBase(ABC):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"Failed to process TTS text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
                 )
                 continue
 
@@ -431,7 +433,7 @@ class TTSProviderBase(ABC):
                     continue
 
                 if self.conn.client_abort:
-                    logger.bind(tag=TAG).debug("收到打断信号，跳过当前音频数据")
+                    logger.bind(tag=TAG).debug("Received interrupt signal, skipping current audio data")
                     enqueue_text, enqueue_audio = None, []
                     continue
 
@@ -483,6 +485,21 @@ class TTSProviderBase(ABC):
         if hasattr(self, "ws") and self.ws:
             await self.ws.close()
 
+    # 半角"."和","可能出现在数字或缩写中（如 3.5、1,5、TP.HCM），只有后面紧跟空白时才视为断句点
+    _ASCII_AMBIGUOUS_PUNCTS = (".", ",")
+
+    @classmethod
+    def _rfind_boundary(cls, text, punct):
+        """从右向左查找可作为断句点的标点位置，找不到返回-1"""
+        pos = text.rfind(punct)
+        if punct not in cls._ASCII_AMBIGUOUS_PUNCTS:
+            return pos
+        while pos != -1:
+            if pos + 1 < len(text) and text[pos + 1].isspace():
+                return pos
+            pos = text.rfind(punct, 0, pos)
+        return -1
+
     def _get_segment_text(self):
         # 合并当前全部文本并处理未分割部分
         full_text = "".join(self.tts_text_buff)
@@ -497,7 +514,7 @@ class TTSProviderBase(ABC):
         )
 
         for punct in punctuations_to_use:
-            pos = current_text.rfind(punct)
+            pos = self._rfind_boundary(current_text, punct)
             if (pos != -1 and last_punct_pos == -1) or (
                 pos != -1 and pos < last_punct_pos
             ):

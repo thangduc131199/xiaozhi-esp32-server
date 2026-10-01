@@ -1,6 +1,7 @@
 import re
 import os
 import json
+import unicodedata
 import copy
 import wave
 import socket
@@ -10,7 +11,7 @@ import subprocess
 import numpy as np
 import opuslib_next
 from io import BytesIO
-from core.utils import p3
+from core.utils import p3, i18n
 from pydub import AudioSegment
 from typing import Callable, Any
 
@@ -84,11 +85,14 @@ def get_ip_info(ip_addr, logger):
             return cached_ip_info
 
         # 缓存未命中，调用API
-        if is_private_ip(ip_addr):
-            ip_addr = ""
-        url = f"https://whois.pconline.com.cn/ipJson.jsp?json=true&ip={ip_addr}"
-        resp = requests.get(url).json()
-        ip_info = {"city": resp.get("city")}
+        # 内网IP时不传IP，由接口按服务器出口IP定位
+        query_ip = "" if is_private_ip(ip_addr) else ip_addr
+        url = f"http://ip-api.com/json/{query_ip}?fields=status,message,country,regionName,city"
+        resp = requests.get(url, timeout=5).json()
+        if resp.get("status") != "success":
+            logger.bind(tag=TAG).warning(f"IP geolocation failed: {resp.get('message')}")
+            return {}
+        ip_info = {"city": resp.get("city"), "country": resp.get("country")}
 
         # 存入缓存
         cache_manager.set(CacheType.IP_INFO, ip_addr, ip_info)
@@ -130,9 +134,26 @@ def remove_punctuation_and_length(text):
     return len(result), result
 
 
+def normalize_command_text(text):
+    """规范化命令文本（唤醒词/退出命令匹配用）：NFC规范化、转小写、去除标点和空格，保留越南语声调"""
+    if not text:
+        return ""
+    text = unicodedata.normalize("NFC", str(text)).lower()
+    _, result = remove_punctuation_and_length(text)
+    return result
+
+
+def match_command(text, commands):
+    """判断文本是否与命令列表中的任意一项匹配（忽略大小写、标点和空格）"""
+    normalized = normalize_command_text(text)
+    if not normalized or not commands:
+        return False
+    return any(normalized == normalize_command_text(cmd) for cmd in commands)
+
+
 def check_model_key(modelType, modelKey):
     if "你" in modelKey:
-        return f"配置错误: {modelType} 的 API key 未设置,当前值为: {modelKey}"
+        return f"Config error: API key for {modelType} is not set, current value: {modelKey}"
     return None
 
 
@@ -179,7 +200,7 @@ def check_ffmpeg_installed() -> bool:
             return True
 
         # 如果未检测到版本信息，也视为异常情况
-        raise ValueError("未检测到有效的 ffmpeg 版本输出。")
+        raise ValueError("No valid ffmpeg version output detected.")
 
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         # 提取错误输出
@@ -191,27 +212,27 @@ def check_ffmpeg_installed() -> bool:
 
         # 构建基础错误提示
         error_msg = [
-            "❌ 检测到 ffmpeg 无法正常运行。\n",
-            "建议您：",
-            "1. 确认已正确激活 conda 环境；",
-            "2. 查阅项目安装文档，了解如何在 conda 环境中安装 ffmpeg。\n",
+            "❌ ffmpeg is not working properly.\n",
+            "Suggestions:",
+            "1. Make sure the conda environment is activated;",
+            "2. See the installation docs for how to install ffmpeg in the conda environment.\n",
         ]
 
         # 🎯 针对具体错误信息提供额外提示
         if "libiconv.so.2" in stderr_output:
-            error_msg.append("⚠️ 发现缺少依赖库：libiconv.so.2")
-            error_msg.append("解决方法：在当前 conda 环境中执行：")
+            error_msg.append("⚠️ Missing dependency: libiconv.so.2")
+            error_msg.append("Fix: run the following in the current conda environment:")
             error_msg.append("   conda install -c conda-forge libiconv\n")
         elif (
             "no such file or directory" in stderr_output
             and "ffmpeg" in stderr_output.lower()
         ):
-            error_msg.append("⚠️ 系统未找到 ffmpeg 可执行文件。")
-            error_msg.append("解决方法：在当前 conda 环境中执行：")
+            error_msg.append("⚠️ ffmpeg executable not found.")
+            error_msg.append("Fix: run the following in the current conda environment:")
             error_msg.append("   conda install -c conda-forge ffmpeg\n")
         else:
-            error_msg.append("错误详情：")
-            error_msg.append(stderr_output or "未知错误。")
+            error_msg.append("Error details:")
+            error_msg.append(stderr_output or "Unknown error.")
 
         # 抛出详细异常信息
         raise ValueError("\n".join(error_msg)) from e
@@ -459,18 +480,12 @@ def check_asr_update(before_config, new_config):
     if current_asr_module != new_asr_module:
         return True
 
-    # 如果模块名称相同，再比较类型
-    current_asr_type = (
-        current_asr_module
-        if "type" not in before_config["ASR"][current_asr_module]
-        else before_config["ASR"][current_asr_module]["type"]
-    )
-    new_asr_type = (
-        new_asr_module
-        if "type" not in new_config["ASR"][new_asr_module]
-        else new_config["ASR"][new_asr_module]["type"]
-    )
-    update_asr = current_asr_type != new_asr_type
+    # 如果模块名称相同，再比较完整配置（类型、api_key、base_url等任一变化都需要重新初始化）
+    current_asr_config = before_config.get("ASR", {}).get(current_asr_module)
+    new_asr_config = new_config.get("ASR", {}).get(new_asr_module)
+    if new_asr_config is None:
+        return False
+    update_asr = current_asr_config != new_asr_config
     return update_asr
 
 
@@ -606,4 +621,4 @@ def get_system_error_response(config: dict) -> str:
     Returns:
         str: 系统错误时的回复
     """
-    return config.get("system_error_response", "主人，小智现在有点忙，我们稍后再试吧。")
+    return config.get("system_error_response") or i18n.t(config, "system_error")

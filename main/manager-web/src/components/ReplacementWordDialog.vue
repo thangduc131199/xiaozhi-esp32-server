@@ -65,7 +65,9 @@ export default {
   props: {
     title: {
       type: String,
-      default: '新增替换词'
+      default() {
+        return this.$t('ui.addReplacementWord')
+      }
     },
     visible: {
       type: Boolean,

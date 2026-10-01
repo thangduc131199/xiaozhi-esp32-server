@@ -37,7 +37,7 @@ class LLMProvider(LLMProviderBase):
                     dialogue_copy[i]["content"] = (
                         "/no_think " + dialogue_copy[i]["content"]
                     )
-                    logger.bind(tag=TAG).debug(f"为qwen3模型添加/no_think指令")
+                    logger.bind(tag=TAG).debug(f"Added /no_think directive for qwen3 model")
                     break
 
             # 使用修改后的对话
@@ -104,7 +104,7 @@ class LLMProvider(LLMProviderBase):
                     dialogue_copy[i]["content"] = (
                         "/no_think " + dialogue_copy[i]["content"]
                     )
-                    logger.bind(tag=TAG).debug(f"为qwen3模型添加/no_think指令")
+                    logger.bind(tag=TAG).debug(f"Added /no_think directive for qwen3 model")
                     break
 
             # 使用修改后的对话

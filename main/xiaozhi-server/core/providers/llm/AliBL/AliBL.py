@@ -1,3 +1,4 @@
+from core.utils import i18n
 from config.logger import setup_logging
 from http import HTTPStatus
 import dashscope
@@ -25,7 +26,7 @@ class LLMProvider(LLMProviderBase):
         if self.is_No_prompt:
             dialogue.pop(0)
             logger.bind(tag=TAG).debug(
-                f"【阿里百练API服务】处理后的dialogue: {dialogue}"
+                f"[Alibaba Bailian API] processed dialogue: {dialogue}"
             )
 
         # 构造调用参数
@@ -43,7 +44,7 @@ class LLMProvider(LLMProviderBase):
             call_params["memory_id"] = self.memory_id
             call_params["prompt"] = prompt
             logger.bind(tag=TAG).debug(
-                f"【阿里百练API服务】处理后的prompt: {prompt}"
+                f"[Alibaba Bailian API] processed prompt: {prompt}"
             )
 
         # 可选地设置自定义API基地址（若配置为兼容模式URL则忽略）
@@ -54,7 +55,7 @@ class LLMProvider(LLMProviderBase):
 
         # 流式处理（SDK在stream=True时返回可迭代对象；否则返回单次响应对象）
         logger.bind(tag=TAG).debug(
-            f"【阿里百练API服务】构造参数: {dict(call_params, api_key='***')}"
+            f"[Alibaba Bailian API] call params: {dict(call_params, api_key='***')}"
         )
 
         last_text = ""
@@ -62,7 +63,7 @@ class LLMProvider(LLMProviderBase):
             for resp in responses:
                 if resp.status_code != HTTPStatus.OK:
                     logger.bind(tag=TAG).error(
-                        f"code={resp.status_code}, message={resp.message}, 请参考文档：https://help.aliyun.com/zh/model-studio/developer-reference/error-code"
+                        f"code={resp.status_code}, message={resp.message}, see docs: https://help.aliyun.com/zh/model-studio/developer-reference/error-code"
                     )
                     continue
                 current_text = getattr(getattr(resp, "output", None), "text", None)
@@ -81,13 +82,13 @@ class LLMProvider(LLMProviderBase):
             # 非流式回落（一次性返回）
             if responses.status_code != HTTPStatus.OK:
                 logger.bind(tag=TAG).error(
-                    f"code={responses.status_code}, message={responses.message}, 请参考文档：https://help.aliyun.com/zh/model-studio/developer-reference/error-code"
+                    f"code={responses.status_code}, message={responses.message}, see docs: https://help.aliyun.com/zh/model-studio/developer-reference/error-code"
                 )
-                yield "【阿里百练API服务响应异常】"
+                yield i18n.tr(None, "【阿里百练API服务响应异常】")
             else:
                 full_text = getattr(getattr(responses, "output", None), "text", "")
                 logger.bind(tag=TAG).info(
-                    f"【阿里百练API服务】完整响应长度: {len(full_text)}"
+                    f"[Alibaba Bailian API] full response length: {len(full_text)}"
                 )
                 for i in range(0, len(full_text), self.streaming_chunk_size):
                     chunk = full_text[i:i + self.streaming_chunk_size]
@@ -98,7 +99,7 @@ class LLMProvider(LLMProviderBase):
         # 阿里百练当前未支持原生的 function call。为保持兼容，这里回退到普通文本流式输出。
         # 上层会按 (content, tool_calls) 的形式消费，这里始终返回 (token, None)
         logger.bind(tag=TAG).warning(
-            "阿里百练未实现原生 function call，已回退为纯文本流式输出"
+            "Alibaba Bailian does not implement native function calls, falling back to plain text streaming"
         )
         for token in self.response(session_id, dialogue):
             yield token, None

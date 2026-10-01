@@ -118,7 +118,7 @@ export default {
       selectedDictType: null,
       selectedDictTypes: [],
       dictTypeDialogVisible: false,
-      dictTypeDialogTitle: '新增字典类型',
+      dictTypeDialogTitle: this.$t('dictManagement.addDictType'),
       dictTypeForm: {
         id: null,
         dictName: '',
@@ -130,7 +130,7 @@ export default {
       dictDataLoading: false,
       isAllDictDataSelected: false,
       dictDataDialogVisible: false,
-      dictDataDialogTitle: '新增字典数据',
+      dictDataDialogTitle: this.$t('dictManagement.addDictData'),
       dictDataForm: {
         id: null,
         dictTypeId: null,

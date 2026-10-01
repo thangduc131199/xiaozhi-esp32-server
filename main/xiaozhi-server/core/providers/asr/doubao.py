@@ -89,6 +89,7 @@ class ASRProvider(ASRProviderBase):
         self.access_token = config.get("access_token")
         self.boosting_table_name = config.get("boosting_table_name", "")
         self.correct_table_name = config.get("correct_table_name", "")
+        self.language = config.get("language", "zh-CN")
         self.output_dir = config.get("output_dir")
         self.delete_audio_file = delete_audio_file
 
@@ -134,7 +135,7 @@ class ASRProvider(ASRProviderBase):
             "audio": {
                 "format": "raw",
                 "rate": 16000,
-                "language": "zh-CN",
+                "language": self.language,
                 "bits": 16,
                 "channel": 1,
                 "codec": "raw",
@@ -250,11 +251,11 @@ class ASRProvider(ASRProviderBase):
             text = await self._send_request(artifacts.pcm_bytes, segment_size)
             if text:
                 logger.bind(tag=TAG).debug(
-                    f"语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text}"
+                    f"Speech recognition took: {time.time() - start_time:.3f}s | result: {text}"
                 )
                 return text, artifacts.file_path
             return "", artifacts.file_path
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"Speech recognition failed: {e}", exc_info=True)
             return "", None

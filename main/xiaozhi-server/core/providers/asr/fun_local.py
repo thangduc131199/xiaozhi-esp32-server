@@ -46,10 +46,10 @@ class ASRProvider(ASRProviderBase):
         try:
             total_mem = psutil.virtual_memory().total
         except RuntimeError as e:
-            logger.bind(tag=TAG).warning(f"获取系统内存信息失败，跳过FunASR内存检测: {e}")
+            logger.bind(tag=TAG).warning(f"Failed to get system memory info, skipping FunASR memory check: {e}")
         else:
             if total_mem < min_mem_bytes:
-                logger.bind(tag=TAG).error(f"可用内存不足2G，当前仅有 {total_mem / (1024*1024):.2f} MB，可能无法启动FunASR")
+                logger.bind(tag=TAG).error(f"Available memory is below 2 GB (only {total_mem / (1024*1024):.2f} MB), FunASR may fail to start")
         
         self.interface_type = InterfaceType.LOCAL
         self.model_dir = config.get("model_dir")
@@ -91,7 +91,7 @@ class ASRProvider(ASRProviderBase):
                 )
                 text = lang_tag_filter(result[0]["text"])
                 logger.bind(tag=TAG).debug(
-                    f"语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text['content']}"
+                    f"Speech recognition took: {time.time() - start_time:.3f}s | result: {text['content']}"
                 )
 
                 return text, artifacts.file_path
@@ -100,14 +100,14 @@ class ASRProvider(ASRProviderBase):
                 retry_count += 1
                 if retry_count >= MAX_RETRIES:
                     logger.bind(tag=TAG).error(
-                        f"语音识别失败（已重试{retry_count}次）: {e}", exc_info=True
+                        f"Speech recognition failed (retried {retry_count} times): {e}", exc_info=True
                     )
                     return "", None
                 logger.bind(tag=TAG).warning(
-                    f"语音识别失败，正在重试（{retry_count}/{MAX_RETRIES}）: {e}"
+                    f"Speech recognition failed, retrying ({retry_count}/{MAX_RETRIES}): {e}"
                 )
                 time.sleep(RETRY_DELAY)
 
             except Exception as e:
-                logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
+                logger.bind(tag=TAG).error(f"Speech recognition failed: {e}", exc_info=True)
                 return "", None

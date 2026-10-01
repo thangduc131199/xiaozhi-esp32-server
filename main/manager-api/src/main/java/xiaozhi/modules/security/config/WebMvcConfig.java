@@ -68,8 +68,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // 忽略未知属性
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        // 设置时区
-        mapper.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+        // 设置时区（跟随JVM默认时区，由容器 TZ 环境变量控制）
+        mapper.setTimeZone(TimeZone.getDefault());
 
         // 配置Java8日期时间序列化
         JavaTimeModule javaTimeModule = new JavaTimeModule();
@@ -102,6 +102,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
     }
 
     /**
+     * 未指定或无法识别语言时的默认语言环境（越南语）
+     */
+    private static final Locale DEFAULT_LOCALE = Locale.forLanguageTag("vi-VN");
+
+    /**
      * 国际化配置 - 根据请求头中的Accept-Language设置语言环境
      */
     @Bean
@@ -111,7 +116,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
             public Locale resolveLocale(HttpServletRequest request) {
                 String acceptLanguage = request.getHeader("Accept-Language");
                 if (acceptLanguage == null || acceptLanguage.isEmpty()) {
-                    return Locale.getDefault();
+                    return DEFAULT_LOCALE;
                 }
 
                 // 解析Accept-Language请求头中的首选语言
@@ -148,7 +153,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 }
 
                 // 如果没有匹配的语言，使用默认语言
-                return Locale.getDefault();
+                return DEFAULT_LOCALE;
             }
         };
     }

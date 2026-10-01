@@ -157,10 +157,10 @@ export default {
       },
       formRules: {
         agentName: [
-          { required: true, message: "请输入助手昵称", trigger: "blur" }
+          { required: true, message: this.$t('templateQuickConfig.agentSettings.agentNamePlaceholder'), trigger: "blur" }
         ],
         systemPrompt: [
-          { required: true, message: "请输入角色介绍", trigger: "blur" }
+          { required: true, message: this.$t('templateQuickConfig.agentSettings.systemPromptPlaceholder'), trigger: "blur" }
         ]
       },
       originalForm: null

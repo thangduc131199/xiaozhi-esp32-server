@@ -30,6 +30,7 @@ import xiaozhi.modules.device.service.DeviceService;
 import xiaozhi.modules.llm.service.LLMService;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
+import xiaozhi.modules.sys.service.SysParamsService;
 
 /**
  * 智能体聊天记录总结服务实现类
@@ -47,14 +48,42 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
     private final DeviceService deviceService;
     private final LLMService llmService;
     private final ModelConfigService modelConfigService;
+    private final SysParamsService sysParamsService;
 
     // 总结规则常量
     private static final int MAX_SUMMARY_LENGTH = 1800; // 最大总结长度
     private static final Pattern JSON_PATTERN = Pattern.compile("\\{.*?\\}", Pattern.DOTALL);
-    private static final Pattern DEVICE_CONTROL_PATTERN = Pattern.compile("设备控制|设备操作|控制设备|设备状态",
-            Pattern.CASE_INSENSITIVE);
-    private static final Pattern WEATHER_PATTERN = Pattern.compile("天气|温度|湿度|降雨|气象", Pattern.CASE_INSENSITIVE);
-    private static final Pattern DATE_PATTERN = Pattern.compile("日期|时间|星期|月份|年份", Pattern.CASE_INSENSITIVE);
+    private static final int PATTERN_FLAGS = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+    private static final Pattern DEVICE_CONTROL_PATTERN = Pattern.compile(
+            "设备控制|设备操作|控制设备|设备状态|điều khiển thiết bị|trạng thái thiết bị|âm lượng", PATTERN_FLAGS);
+    private static final Pattern WEATHER_PATTERN = Pattern.compile(
+            "天气|温度|湿度|降雨|气象|thời tiết|nhiệt độ|độ ẩm|dự báo", PATTERN_FLAGS);
+    private static final Pattern DATE_PATTERN = Pattern.compile(
+            "日期|时间|星期|月份|年份|mấy giờ|thứ mấy|ngày mấy|hôm nay là ngày|âm lịch", PATTERN_FLAGS);
+
+    /**
+     * 服务端语种是否为中文（由系统参数 default_language 决定，默认越南语）
+     */
+    private boolean isChinese() {
+        try {
+            String language = sysParamsService.getValue("default_language", true);
+            return StringUtils.startsWithIgnoreCase(StringUtils.trimToEmpty(language), "zh");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 拼接给LLM的对话内容，每条消息带序号
+     */
+    private String buildConversation(List<String> messages) {
+        String label = isChinese() ? "消息" : "Tin nhắn ";
+        StringBuilder conversation = new StringBuilder();
+        for (int i = 0; i < messages.size(); i++) {
+            conversation.append(label).append(i + 1).append(": ").append(messages.get(i)).append("\n");
+        }
+        return conversation.toString();
+    }
 
     private AgentChatSummaryDTO generateChatSummary(String sessionId) {
         try {
@@ -155,13 +184,8 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
                 return false;
             }
 
-            StringBuilder conversation = new StringBuilder();
-            for (int i = 0; i < meaningfulMessages.size(); i++) {
-                conversation.append("消息").append(i + 1).append(": ").append(meaningfulMessages.get(i)).append("\n");
-            }
-
             String slmModelId = getSlmModelId(agentId);
-            String title = llmService.generateTitle(conversation.toString(), slmModelId);
+            String title = llmService.generateTitle(buildConversation(meaningfulMessages), slmModelId);
 
             if (StringUtils.isNotBlank(title)) {
                 agentChatTitleService.saveOrUpdateTitle(sessionId, title);
@@ -351,13 +375,8 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
      */
     private String generateSummaryFromMessages(List<String> messages, String agentId) {
         if (messages.isEmpty()) {
-            return "本次对话内容较少，没有需要总结的重要信息。";
-        }
-
-        // 构建完整的对话内容
-        StringBuilder conversation = new StringBuilder();
-        for (int i = 0; i < messages.size(); i++) {
-            conversation.append("消息").append(i + 1).append(": ").append(messages.get(i)).append("\n");
+            return isChinese() ? "本次对话内容较少，没有需要总结的重要信息。"
+                    : "Cuộc trò chuyện này ngắn, không có thông tin quan trọng cần tóm tắt.";
         }
 
         try {
@@ -365,7 +384,7 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
             String historyMemory = getCurrentAgentMemory(agentId);
 
             // 调用LLM服务进行智能总结，传递agentId以获取正确的模型配置
-            String summary = callJavaLLMForSummaryWithHistory(conversation.toString(), historyMemory, agentId);
+            String summary = callJavaLLMForSummaryWithHistory(buildConversation(messages), historyMemory, agentId);
 
             // 应用总结规则：限制最大长度
             if (summary.length() > MAX_SUMMARY_LENGTH) {
@@ -411,12 +430,13 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
 
             if (StringUtils.isBlank(modelId)) {
                 log.info("未找到SLM模型，使用默认LLM服务");
-                return llmService.generateSummaryWithHistory(conversation, historyMemory, null, null);
+                modelId = null;
             }
 
             String summary = llmService.generateSummaryWithHistory(conversation, historyMemory, null, modelId);
 
-            if (StringUtils.isNotBlank(summary) && !summary.equals("服务暂不可用") && !summary.equals("总结生成失败")) {
+            // 失败提示文本不能当成记忆保存
+            if (!LLMService.isErrorResult(summary)) {
                 return summary;
             }
 
@@ -435,14 +455,16 @@ public class AgentChatSummaryServiceImpl implements AgentChatSummaryService {
         try {
             String modelId = getSlmModelId(agentId);
 
+            String summary;
             if (StringUtils.isBlank(modelId)) {
                 log.info("未找到SLM模型，使用默认LLM服务");
-                return llmService.generateSummary(conversation);
+                summary = llmService.generateSummary(conversation);
+            } else {
+                summary = llmService.generateSummaryWithModel(conversation, modelId);
             }
 
-            String summary = llmService.generateSummaryWithModel(conversation, modelId);
-
-            if (StringUtils.isNotBlank(summary) && !summary.equals("服务暂不可用") && !summary.equals("总结生成失败")) {
+            // 失败提示文本不能当成记忆保存
+            if (!LLMService.isErrorResult(summary)) {
                 return summary;
             }
 

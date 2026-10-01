@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import xiaozhi.modules.llm.service.LLMService;
 import xiaozhi.modules.model.entity.ModelConfigEntity;
 import xiaozhi.modules.model.service.ModelConfigService;
+import xiaozhi.modules.sys.service.SysParamsService;
 
 /**
  * OpenAI风格API的LLM服务实现
@@ -40,7 +41,10 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
         THINKING_DISABLED_DOMAINS.put("bigmodel.cn", thinkingDisabled);
         THINKING_DISABLED_DOMAINS.put("moonshot.cn", thinkingDisabled);
         THINKING_DISABLED_DOMAINS.put("volces.com", thinkingDisabled);
+        THINKING_DISABLED_DOMAINS.put("generativelanguage.googleapis.com", Map.of("reasoning_effort", "none"));
     }
+
+    private static final String DEFAULT_LANGUAGE_PARAM = "default_language";
 
     @Autowired
     private ModelConfigService modelConfigService;
@@ -63,6 +67,33 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
     private static final String DEFAULT_SUMMARY_PROMPT = "你是一个经验丰富的记忆总结者，擅长将对话内容进行总结摘要，遵循以下规则：\n1、总结用户的重要信息，以便在未来的对话中提供更个性化的服务\n2、不要重复总结，不要遗忘之前记忆，除非原来的记忆超过了1800字，否则不要遗忘、不要压缩用户的历史记忆\n3、用户操控的设备音量、播放音乐、天气、退出、不想对话等和用户本身无关的内容，这些信息不需要加入到总结中\n4、聊天内容中的今天的日期时间、今天的天气情况与用户事件无关的数据，这些信息如果当成记忆存储会影响后续对话，这些信息不需要加入到总结中\n5、不要把设备操控的成果结果和失败结果加入到总结中，也不要把用户的一些废话加入到总结中\n6、不要为了总结而总结，如果用户的聊天没有意义，请返回原来的历史记录也是可以的\n7、只需要返回总结摘要，严格控制在1800字内\n8、不要包含代码、xml，不需要解释、注释和说明，保存记忆时仅从对话提取信息，不要混入示例内容\n9、如果提供了历史记忆，请将新对话内容与历史记忆进行智能合并，保留有价值的历史信息，同时添加新的重要信息\n\n历史记忆：\n{history_memory}\n\n新对话内容：\n{conversation}";
 
     private static final String DEFAULT_TITLE_PROMPT = "请根据以下对话内容，生成一个简洁的会话标题（约15字以内），只返回标题，不要包含任何解释或标点符号：\n{conversation}";
+
+    private static final String VI_SUMMARY_PROMPT = "Bạn là người tóm tắt ký ức giàu kinh nghiệm, giỏi tóm tắt nội dung hội thoại. Hãy tuân thủ các quy tắc sau:\n1. Tóm tắt những thông tin quan trọng của người dùng để phục vụ cá nhân hoá tốt hơn trong các cuộc trò chuyện sau\n2. Không tóm tắt lặp lại, không quên ký ức trước đó; trừ khi ký ức cũ vượt quá 1800 ký tự, không được quên hay nén ký ức lịch sử của người dùng\n3. Các nội dung không liên quan đến bản thân người dùng như chỉnh âm lượng thiết bị, phát nhạc, thời tiết, thoát, không muốn trò chuyện... không cần đưa vào bản tóm tắt\n4. Ngày giờ hôm nay, thời tiết hôm nay và các dữ liệu không liên quan đến sự kiện của người dùng không cần đưa vào bản tóm tắt, vì lưu thành ký ức sẽ ảnh hưởng các cuộc trò chuyện sau\n5. Không đưa kết quả thành công hay thất bại của việc điều khiển thiết bị vào bản tóm tắt, cũng không đưa những câu nói vô nghĩa của người dùng\n6. Đừng tóm tắt chỉ để tóm tắt; nếu cuộc trò chuyện không có ý nghĩa, có thể trả về nguyên ký ức lịch sử\n7. Chỉ trả về phần tóm tắt, tối đa 1800 ký tự\n8. Không chứa code, xml, không giải thích, không chú thích; chỉ lấy thông tin từ hội thoại, không trộn nội dung ví dụ\n9. Nếu có ký ức lịch sử, hãy hợp nhất thông minh nội dung hội thoại mới với ký ức lịch sử, giữ lại thông tin cũ có giá trị và thêm thông tin quan trọng mới\n10. Viết bản tóm tắt bằng tiếng Việt\n\nKý ức lịch sử:\n{history_memory}\n\nNội dung hội thoại mới:\n{conversation}";
+
+    private static final String VI_TITLE_PROMPT = "Dựa vào nội dung hội thoại dưới đây, hãy đặt một tiêu đề ngắn gọn bằng tiếng Việt (khoảng 4 đến 8 từ). Chỉ trả về tiêu đề, không giải thích, không dấu câu:\n{conversation}";
+
+    private static final int ZH_TITLE_MAX_LENGTH = 15;
+    private static final int VI_TITLE_MAX_LENGTH = 50;
+
+    @Autowired
+    private SysParamsService sysParamsService;
+
+    /**
+     * 服务端语种是否为中文（由系统参数 default_language 决定，默认越南语）
+     */
+    private boolean isChinese() {
+        try {
+            String language = sysParamsService.getValue(DEFAULT_LANGUAGE_PARAM, true);
+            return StringUtils.startsWithIgnoreCase(StringUtils.trimToEmpty(language), "zh");
+        } catch (Exception e) {
+            log.warn("获取default_language失败，使用越南语: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    private String summaryPrompt() {
+        return isChinese() ? DEFAULT_SUMMARY_PROMPT : VI_SUMMARY_PROMPT;
+    }
 
     @Override
     public String generateSummary(String conversation) {
@@ -110,7 +141,7 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
             }
 
             // 构建提示词
-            String prompt = (promptTemplate != null ? promptTemplate : DEFAULT_SUMMARY_PROMPT).replace("{conversation}",
+            String prompt = (promptTemplate != null ? promptTemplate : summaryPrompt()).replace("{conversation}",
                     conversation);
 
             // 构建请求体
@@ -203,8 +234,11 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
             }
 
             // 构建提示词，包含历史记忆
-            String prompt = (promptTemplate != null ? promptTemplate : DEFAULT_SUMMARY_PROMPT)
-                    .replace("{history_memory}", historyMemory != null ? historyMemory : "无历史记忆")
+            boolean chinese = isChinese();
+            String emptyHistory = chinese ? "无历史记忆" : "Chưa có ký ức";
+            String prompt = (promptTemplate != null ? promptTemplate
+                    : (chinese ? DEFAULT_SUMMARY_PROMPT : VI_SUMMARY_PROMPT))
+                    .replace("{history_memory}", historyMemory != null ? historyMemory : emptyHistory)
                     .replace("{conversation}", conversation);
 
             // 构建请求体
@@ -360,7 +394,9 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
                 return null;
             }
 
-            String prompt = DEFAULT_TITLE_PROMPT.replace("{conversation}", conversation);
+            boolean chinese = isChinese();
+            String prompt = (chinese ? DEFAULT_TITLE_PROMPT : VI_TITLE_PROMPT).replace("{conversation}", conversation);
+            int titleMaxLength = chinese ? ZH_TITLE_MAX_LENGTH : VI_TITLE_MAX_LENGTH;
 
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", model != null ? model : "gpt-3.5-turbo");
@@ -401,9 +437,9 @@ public class OpenAIStyleLLMServiceImpl implements LLMService {
                     JSONObject messageObj = choice.getJSONObject("message");
                     String title = messageObj.getStr("content");
                     if (StringUtils.isNotBlank(title)) {
-                        title = title.trim().replaceAll("[，。！？、：；''\"\"【】（）]", "");
-                        if (title.length() > 15) {
-                            title = title.substring(0, 15);
+                        title = title.trim().replaceAll("[，。！？、：；''\"\"【】（）.,!?:;\"*#]", "").trim();
+                        if (title.length() > titleMaxLength) {
+                            title = title.substring(0, titleMaxLength).trim();
                         }
                         return title;
                     }

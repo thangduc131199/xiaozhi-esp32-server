@@ -103,26 +103,26 @@ class MCPClient:
 async def send_mcp_message(conn: "ConnectionHandler", payload: dict):
     """Helper to send MCP messages, encapsulating common logic."""
     if not conn.features.get("mcp"):
-        logger.bind(tag=TAG).warning("客户端不支持MCP，无法发送MCP消息")
+        logger.bind(tag=TAG).warning("Client does not support MCP, cannot send MCP message")
         return
 
     message = json.dumps({"type": "mcp", "payload": payload})
 
     try:
         await conn.websocket.send(message)
-        logger.bind(tag=TAG).debug(f"成功发送MCP消息: {message}")
+        logger.bind(tag=TAG).debug(f"MCP message sent: {message}")
     except Exception as e:
-        logger.bind(tag=TAG).error(f"发送MCP消息失败: {e}")
+        logger.bind(tag=TAG).error(f"Failed to send MCP message: {e}")
 
 
 async def handle_mcp_message(
     conn: "ConnectionHandler", mcp_client: MCPClient, payload: dict
 ):
     """处理MCP消息,包括初始化、工具列表和工具调用响应等"""
-    logger.bind(tag=TAG).debug(f"处理MCP消息: {str(payload)[:100]}")
+    logger.bind(tag=TAG).debug(f"Handling MCP message: {str(payload)[:100]}")
 
     if not isinstance(payload, dict):
-        logger.bind(tag=TAG).error("MCP消息缺少payload字段或格式错误")
+        logger.bind(tag=TAG).error("MCP message is missing payload or malformed")
         return
 
     # Handle result
@@ -133,37 +133,37 @@ async def handle_mcp_message(
         # Check for tool call response first
         if msg_id in mcp_client.call_results:
             logger.bind(tag=TAG).debug(
-                f"收到工具调用响应，ID: {msg_id}, 结果: {result}"
+                f"Received tool call response, ID: {msg_id}, result: {result}"
             )
             await mcp_client.resolve_call_result(msg_id, result)
             return
 
         if msg_id == 1:  # mcpInitializeID
-            logger.bind(tag=TAG).debug("收到MCP初始化响应")
+            logger.bind(tag=TAG).debug("Received MCP initialize response")
             server_info = result.get("serverInfo")
             if isinstance(server_info, dict):
                 name = server_info.get("name")
                 version = server_info.get("version")
                 logger.bind(tag=TAG).debug(
-                    f"客户端MCP服务器信息: name={name}, version={version}"
+                    f"Client MCP server info: name={name}, version={version}"
                 )
 
             await asyncio.sleep(1)
-            logger.bind(tag=TAG).debug("初始化完成，开始请求MCP工具列表")
+            logger.bind(tag=TAG).debug("Initialization done, requesting MCP tool list")
             await send_mcp_tools_list_request(conn)
 
             return
 
         elif msg_id == 2:  # mcpToolsListID
-            logger.bind(tag=TAG).debug("收到MCP工具列表响应")
+            logger.bind(tag=TAG).debug("Received MCP tool list response")
             if isinstance(result, dict) and "tools" in result:
                 tools_data = result["tools"]
                 if not isinstance(tools_data, list):
-                    logger.bind(tag=TAG).error("工具列表格式错误")
+                    logger.bind(tag=TAG).error("Malformed tool list")
                     return
 
                 logger.bind(tag=TAG).info(
-                    f"客户端设备支持的工具数量: {len(tools_data)}"
+                    f"Number of tools supported by client device: {len(tools_data)}"
                 )
 
                 for i, tool in enumerate(tools_data):
@@ -188,7 +188,7 @@ async def handle_mcp_message(
                         "inputSchema": input_schema,
                     }
                     await mcp_client.add_tool(new_tool)
-                    logger.bind(tag=TAG).debug(f"客户端工具 #{i+1}: {name}")
+                    logger.bind(tag=TAG).debug(f"Client tool #{i+1}: {name}")
 
                 # 替换所有工具描述中的工具名称
                 for tool_data in mcp_client.tools.values():
@@ -206,11 +206,11 @@ async def handle_mcp_message(
 
                 next_cursor = result.get("nextCursor", "")
                 if next_cursor:
-                    logger.bind(tag=TAG).debug(f"有更多工具，nextCursor: {next_cursor}")
+                    logger.bind(tag=TAG).debug(f"More tools available, nextCursor: {next_cursor}")
                     await send_mcp_tools_list_continue_request(conn, next_cursor)
                 else:
                     await mcp_client.set_ready(True)
-                    logger.bind(tag=TAG).debug("所有工具已获取，MCP客户端准备就绪")
+                    logger.bind(tag=TAG).debug("All tools fetched, MCP client ready")
 
                     # 刷新工具缓存，确保MCP工具被包含在函数列表中
                     if hasattr(conn, "func_handler") and conn.func_handler:
@@ -221,17 +221,17 @@ async def handle_mcp_message(
     # Handle method calls (requests from the client)
     elif "method" in payload:
         method = payload["method"]
-        logger.bind(tag=TAG).info(f"收到MCP客户端请求: {method}")
+        logger.bind(tag=TAG).info(f"Received MCP client request: {method}")
 
     elif "error" in payload:
         error_data = payload["error"]
-        error_msg = error_data.get("message", "未知错误")
-        logger.bind(tag=TAG).error(f"收到MCP错误响应: {error_msg}")
+        error_msg = error_data.get("message", "unknown error")
+        logger.bind(tag=TAG).error(f"Received MCP error response: {error_msg}")
 
         msg_id = int(payload.get("id", 0))
         if msg_id in mcp_client.call_results:
             await mcp_client.reject_call_result(
-                msg_id, Exception(f"MCP错误: {error_msg}")
+                msg_id, Exception(f"MCP error: {error_msg}")
             )
 
 
@@ -266,7 +266,7 @@ async def send_mcp_initialize_message(conn: "ConnectionHandler"):
             },
         },
     }
-    logger.bind(tag=TAG).debug("发送MCP初始化消息")
+    logger.bind(tag=TAG).debug("Sending MCP initialize message")
     await send_mcp_message(conn, payload)
 
 
@@ -277,7 +277,7 @@ async def send_mcp_tools_list_request(conn: "ConnectionHandler"):
         "id": 2,  # mcpToolsListID
         "method": "tools/list",
     }
-    logger.bind(tag=TAG).debug("发送MCP工具列表请求")
+    logger.bind(tag=TAG).debug("Sending MCP tool list request")
     await send_mcp_message(conn, payload)
 
 
@@ -289,7 +289,7 @@ async def send_mcp_tools_list_continue_request(conn: "ConnectionHandler", cursor
         "method": "tools/list",
         "params": {"cursor": cursor},
     }
-    logger.bind(tag=TAG).info(f"发送带cursor的MCP工具列表请求: {cursor}")
+    logger.bind(tag=TAG).info(f"Sending MCP tool list request with cursor: {cursor}")
     await send_mcp_message(conn, payload)
 
 
@@ -304,10 +304,10 @@ async def call_mcp_tool(
     调用指定的工具，并等待响应
     """
     if not await mcp_client.is_ready():
-        raise RuntimeError("MCP客户端尚未准备就绪")
+        raise RuntimeError("MCP client is not ready")
 
     if not mcp_client.has_tool(tool_name):
-        raise ValueError(f"工具 {tool_name} 不存在")
+        raise ValueError(f"Tool {tool_name} does not exist")
 
     tool_call_id = await mcp_client.get_next_id()
     result_future = asyncio.Future()
@@ -341,26 +341,26 @@ async def call_mcp_tool(
                             if merged_dict:
                                 arguments = merged_dict
                             else:
-                                raise ValueError(f"无法解析任何有效的JSON对象: {args}")
+                                raise ValueError(f"No valid JSON object could be parsed: {args}")
                         else:
-                            raise ValueError(f"参数JSON解析失败: {args}")
+                            raise ValueError(f"Failed to parse argument JSON: {args}")
                     except Exception as e:
                         logger.bind(tag=TAG).error(
-                            f"参数JSON解析失败: {str(e)}, 原始参数: {args}"
+                            f"Failed to parse argument JSON: {str(e)}, raw arguments: {args}"
                         )
-                        raise ValueError(f"参数JSON解析失败: {str(e)}")
+                        raise ValueError(f"Failed to parse argument JSON: {str(e)}")
         elif isinstance(args, dict):
             arguments = args
         else:
-            raise ValueError(f"参数类型错误，期望字符串或字典，实际类型: {type(args)}")
+            raise ValueError(f"Invalid argument type, expected str or dict, got: {type(args)}")
 
         # 确保参数是字典类型
         if not isinstance(arguments, dict):
-            raise ValueError(f"参数必须是字典类型，实际类型: {type(arguments)}")
+            raise ValueError(f"Arguments must be a dict, got: {type(arguments)}")
 
     except Exception as e:
         if not isinstance(e, ValueError):
-            raise ValueError(f"参数处理失败: {str(e)}")
+            raise ValueError(f"Failed to process arguments: {str(e)}")
         raise e
 
     actual_name = mcp_client.name_mapping.get(tool_name, tool_name)
@@ -371,22 +371,26 @@ async def call_mcp_tool(
         "params": {"name": actual_name, "arguments": arguments},
     }
 
-    logger.bind(tag=TAG).info(f"发送客户端mcp工具调用请求: {actual_name}，参数: {args}")
+    logger.bind(tag=TAG).info(f"Sending client MCP tool call request: {actual_name}, arguments: {args}")
     await send_mcp_message(conn, payload)
 
     try:
         # Wait for response or timeout
         raw_result = await asyncio.wait_for(result_future, timeout=timeout)
         logger.bind(tag=TAG).info(
-            f"客户端mcp工具调用 {actual_name} 成功，原始结果: {raw_result}"
+            f"Client MCP tool call {actual_name} succeeded, raw result: {raw_result}"
         )
 
         if isinstance(raw_result, dict):
             if raw_result.get("isError") is True:
-                error_msg = raw_result.get(
-                    "error", "工具调用返回错误，但未提供具体错误信息"
+                error_msg = raw_result.get("error")
+                content = raw_result.get("content")
+                if not error_msg and isinstance(content, list) and content:
+                    if isinstance(content[0], dict):
+                        error_msg = content[0].get("text")
+                raise RuntimeError(
+                    f"Tool call error: {error_msg or 'no error details provided'}"
                 )
-                raise RuntimeError(f"工具调用错误: {error_msg}")
 
             content = raw_result.get("content")
             if isinstance(content, list) and len(content) > 0:
@@ -397,7 +401,7 @@ async def call_mcp_tool(
         return str(raw_result)
     except asyncio.TimeoutError:
         await mcp_client.cleanup_call_result(tool_call_id)
-        raise TimeoutError("工具调用请求超时")
+        raise TimeoutError("Tool call timed out")
     except Exception as e:
         await mcp_client.cleanup_call_result(tool_call_id)
         raise e

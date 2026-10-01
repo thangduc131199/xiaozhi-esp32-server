@@ -58,5 +58,5 @@ class TTSProvider(TTSProviderBase):
                 return response.content
         else:
             raise Exception(
-                f"OpenAI TTS请求失败: {response.status_code} - {response.text}"
+                f"OpenAI TTS request failed: {response.status_code} - {response.text}"
             )

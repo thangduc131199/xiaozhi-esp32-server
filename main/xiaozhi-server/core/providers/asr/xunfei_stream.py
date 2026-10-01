@@ -43,7 +43,7 @@ class ASRProvider(ASRProviderBase):
         self.api_secret = config.get("api_secret")
 
         if not all([self.app_id, self.api_key, self.api_secret]):
-            raise ValueError("必须提供app_id、api_key和api_secret")
+            raise ValueError("app_id, api_key and api_secret are required")
 
         # 识别参数
         self.iat_params = {
@@ -107,7 +107,7 @@ class ASRProvider(ASRProviderBase):
             try:
                 await self._start_recognition(conn)
             except Exception as e:
-                logger.bind(tag=TAG).error(f"建立ASR连接失败: {str(e)}")
+                logger.bind(tag=TAG).error(f"Failed to establish ASR connection: {str(e)}")
                 await self._cleanup()
                 return
 
@@ -116,7 +116,7 @@ class ASRProvider(ASRProviderBase):
             try:
                 await self._send_audio_frame(pcm_frame, STATUS_CONTINUE_FRAME)
             except Exception as e:
-                logger.bind(tag=TAG).warning(f"发送音频数据时发生错误: {e}")
+                logger.bind(tag=TAG).warning(f"Error sending audio data: {e}")
                 await self._cleanup()
 
     async def _start_recognition(self, conn: "ConnectionHandler"):
@@ -125,7 +125,7 @@ class ASRProvider(ASRProviderBase):
             self.is_processing = True
             # 建立WebSocket连接
             ws_url = self.create_url()
-            logger.bind(tag=TAG).info(f"正在连接ASR服务: {ws_url[:50]}...")
+            logger.bind(tag=TAG).info(f"Connecting to ASR service: {ws_url[:50]}...")
 
             # 如果为手动模式,设置超时时长为一分钟
             if conn.client_listen_mode == "manual":
@@ -139,7 +139,7 @@ class ASRProvider(ASRProviderBase):
                 close_timeout=10,
             )
 
-            logger.bind(tag=TAG).info("ASR WebSocket连接已建立")
+            logger.bind(tag=TAG).info("ASR WebSocket connection established")
             self.server_ready = False
             self.forward_task = asyncio.create_task(self._forward_results(conn))
 
@@ -148,20 +148,20 @@ class ASRProvider(ASRProviderBase):
                 first_pcm = conn.asr_audio[-1] if conn.asr_audio else b""
                 await self._send_audio_frame(first_pcm, STATUS_FIRST_FRAME)
                 self.server_ready = True
-                logger.bind(tag=TAG).info("已发送首帧，开始识别")
+                logger.bind(tag=TAG).info("First frame sent, starting recognition")
 
                 # 发送缓存的音频数据
                 for cached_pcm in conn.asr_audio[-10:]:
                     try:
                         await self._send_audio_frame(cached_pcm, STATUS_CONTINUE_FRAME)
                     except Exception as e:
-                        logger.bind(tag=TAG).info(f"发送缓存音频数据时发生错误: {e}")
+                        logger.bind(tag=TAG).info(f"Error sending buffered audio data: {e}")
                         break
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"建立ASR连接失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Failed to establish ASR connection: {str(e)}")
             if hasattr(e, "__cause__") and e.__cause__:
-                logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
             if self.asr_ws:
                 await self.asr_ws.close()
                 self.asr_ws = None
@@ -192,7 +192,7 @@ class ASRProvider(ASRProviderBase):
                 try:
                     response = await asyncio.wait_for(self.asr_ws.recv(), timeout=60)
                     result = json.loads(response)
-                    logger.bind(tag=TAG).debug(f"收到ASR结果: {result}")
+                    logger.bind(tag=TAG).debug(f"Received ASR result: {result}")
 
                     header = result.get("header", {})
                     payload = result.get("payload", {})
@@ -201,7 +201,7 @@ class ASRProvider(ASRProviderBase):
 
                     if code != 0:
                         logger.bind(tag=TAG).error(
-                            f"识别错误，错误码: {code}, 消息: {header.get('message', '')}"
+                            f"Recognition error, code: {code}, message: {header.get('message', '')}"
                         )
                         if code in [10114, 10160]:  # 连接问题
                             break
@@ -222,28 +222,28 @@ class ASRProvider(ASRProviderBase):
                                     self.text += w
 
                     if status == 2:
-                        logger.bind(tag=TAG).debug("收到最终识别结果，触发处理")
+                        logger.bind(tag=TAG).debug("Received final recognition result, processing")
                         await self.handle_voice_stop(conn, conn.asr_audio)
                         break
 
                 except asyncio.TimeoutError:
-                    logger.bind(tag=TAG).error("接收结果超时")
+                    logger.bind(tag=TAG).error("Timed out receiving results")
                     break
                 except websockets.ConnectionClosed:
-                    logger.bind(tag=TAG).info("ASR服务连接已关闭")
+                    logger.bind(tag=TAG).info("ASR service connection closed")
                     self.is_processing = False
                     break
                 except Exception as e:
-                    logger.bind(tag=TAG).error(f"处理ASR结果时发生错误: {str(e)}")
+                    logger.bind(tag=TAG).error(f"Error processing ASR result: {str(e)}")
                     if hasattr(e, "__cause__") and e.__cause__:
-                        logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                        logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
                     self.is_processing = False
                     break
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"ASR结果转发任务发生错误: {str(e)}")
+            logger.bind(tag=TAG).error(f"ASR result forwarding task error: {str(e)}")
             if hasattr(e, "__cause__") and e.__cause__:
-                logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
         finally:
             # 清理连接资源
             await self._cleanup()
@@ -258,18 +258,18 @@ class ASRProvider(ASRProviderBase):
             if self.asr_ws and self.is_processing:
                 try:
                     await self._send_audio_frame(b"", STATUS_LAST_FRAME)
-                    logger.bind(tag=TAG).debug(f"已发送停止请求")
+                    logger.bind(tag=TAG).debug(f"Stop request sent")
 
                     await asyncio.sleep(0.25)
                 except Exception as e:
-                    logger.bind(tag=TAG).error(f"发送停止请求失败: {e}")
+                    logger.bind(tag=TAG).error(f"Failed to send stop request: {e}")
 
             await super().handle_voice_stop(conn, asr_audio_task)
         except Exception as e:
-            logger.bind(tag=TAG).error(f"处理语音停止失败: {e}")
+            logger.bind(tag=TAG).error(f"Failed to handle voice stop: {e}")
             import traceback
 
-            logger.bind(tag=TAG).debug(f"异常详情: {traceback.format_exc()}")
+            logger.bind(tag=TAG).debug(f"Exception details: {traceback.format_exc()}")
 
     def stop_ws_connection(self):
         if self.asr_ws:
@@ -284,36 +284,36 @@ class ASRProvider(ASRProviderBase):
                 # 先停止音频发送
                 self.is_processing = False
                 await self._send_audio_frame(b"", STATUS_LAST_FRAME)
-                logger.bind(tag=TAG).debug("已发送停止请求")
+                logger.bind(tag=TAG).debug("Stop request sent")
             except Exception as e:
-                logger.bind(tag=TAG).error(f"发送停止请求失败: {e}")
+                logger.bind(tag=TAG).error(f"Failed to send stop request: {e}")
 
     async def _cleanup(self):
         """清理资源（关闭连接）"""
         logger.bind(tag=TAG).debug(
-            f"开始ASR会话清理 | 当前状态: processing={self.is_processing}, server_ready={self.server_ready}"
+            f"Starting ASR session cleanup | state: processing={self.is_processing}, server_ready={self.server_ready}"
         )
 
         # 状态重置
         self.is_processing = False
         self.server_ready = False
-        logger.bind(tag=TAG).debug("ASR状态已重置")
+        logger.bind(tag=TAG).debug("ASR state reset")
 
         # 关闭连接
         if self.asr_ws:
             try:
-                logger.bind(tag=TAG).debug("正在关闭WebSocket连接")
+                logger.bind(tag=TAG).debug("Closing WebSocket connection")
                 await asyncio.wait_for(self.asr_ws.close(), timeout=2.0)
-                logger.bind(tag=TAG).debug("WebSocket连接已关闭")
+                logger.bind(tag=TAG).debug("WebSocket connection closed")
             except Exception as e:
-                logger.bind(tag=TAG).error(f"关闭WebSocket连接失败: {e}")
+                logger.bind(tag=TAG).error(f"Failed to close WebSocket connection: {e}")
             finally:
                 self.asr_ws = None
 
         # 清理任务引用
         self.forward_task = None
 
-        logger.bind(tag=TAG).debug("ASR会话清理完成")
+        logger.bind(tag=TAG).debug("ASR session cleanup complete")
 
     async def speech_to_text(self, opus_data, session_id, artifacts=None):
         """获取识别结果"""

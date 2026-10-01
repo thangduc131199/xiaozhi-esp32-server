@@ -1,3 +1,4 @@
+import i18n from '../../i18n/index';
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
@@ -78,7 +79,7 @@ export default {
       method: 'GET',
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '获取知识库列表失败',
+      errorMessage: i18n.t('apiError.getKbList'),
       retryFunction: () => this.getKnowledgeBaseList(params, callback, errorCallback)
     });
   },
@@ -112,7 +113,7 @@ export default {
           errorCallback(err);
         }
       },
-      errorMessage: '创建知识库失败',
+      errorMessage: i18n.t('apiError.createKb'),
       retryFunction: () => this.createKnowledgeBase(data, callback, errorCallback)
     });
   },
@@ -135,7 +136,7 @@ export default {
       headers: { 'Content-Type': 'application/json' },
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '更新知识库失败',
+      errorMessage: i18n.t('apiError.updateKb'),
       retryFunction: () => this.updateKnowledgeBase(datasetId, data, callback, errorCallback)
     });
   },
@@ -155,7 +156,7 @@ export default {
       method: 'DELETE',
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '删除知识库失败',
+      errorMessage: i18n.t('apiError.deleteKb'),
       retryFunction: () => this.deleteKnowledgeBase(datasetId, callback, errorCallback)
     });
   },
@@ -175,7 +176,7 @@ export default {
       method: 'DELETE',
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '批量删除知识库失败',
+      errorMessage: i18n.t('apiError.batchDeleteKb'),
       retryFunction: () => this.deleteKnowledgeBases(ids, callback, errorCallback)
     });
   },
@@ -199,7 +200,7 @@ export default {
       method: 'GET',
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '获取文档列表失败',
+      errorMessage: i18n.t('apiError.getDocList'),
       retryFunction: () => this.getDocumentList(datasetId, params, callback, errorCallback)
     });
   },
@@ -219,7 +220,7 @@ export default {
       headers: { 'Content-Type': 'multipart/form-data' },
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '上传文档失败',
+      errorMessage: i18n.t('apiError.uploadDoc'),
       retryFunction: () => this.uploadDocument(datasetId, formData, callback, errorCallback)
     });
   },
@@ -243,7 +244,7 @@ export default {
       headers: { 'Content-Type': 'application/json' },
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '解析文档失败',
+      errorMessage: i18n.t('apiError.parseDoc'),
       retryFunction: () => this.parseDocument(datasetId, documentId, callback, errorCallback)
     });
   },
@@ -261,7 +262,7 @@ export default {
       method: 'DELETE',
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '删除文档失败',
+      errorMessage: i18n.t('apiError.deleteDoc'),
       retryFunction: () => this.deleteDocument(datasetId, documentId, callback, errorCallback)
     });
   },
@@ -290,7 +291,7 @@ export default {
       method: 'GET',
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '获取切片列表失败',
+      errorMessage: i18n.t('apiError.getSliceList'),
       retryFunction: () => this.listChunks(datasetId, documentId, params, callback, errorCallback)
     });
   },
@@ -310,7 +311,7 @@ export default {
       headers: { 'Content-Type': 'application/json' },
       callback: callback,
       errorCallback: errorCallback,
-      errorMessage: '召回测试失败',
+      errorMessage: i18n.t('apiError.retrievalTest'),
       retryFunction: () => this.retrievalTest(datasetId, data, callback, errorCallback)
     });
   }

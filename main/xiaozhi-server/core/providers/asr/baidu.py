@@ -34,13 +34,13 @@ class ASRProvider(ASRProviderBase):
     ) -> Tuple[Optional[str], Optional[str]]:
         """将语音数据转换为文本"""
         if not opus_data:
-            logger.bind(tag=TAG).warning("音频数据为空！")
+            logger.bind(tag=TAG).warning("Audio data is empty!")
             return None, None
 
         try:
             # 检查配置是否已设置
             if not self.app_id or not self.api_key or not self.secret_key:
-                logger.bind(tag=TAG).error("百度语音识别配置未设置，无法进行识别")
+                logger.bind(tag=TAG).error("Baidu ASR is not configured, cannot recognize")
                 return None, None
 
             if artifacts is None:
@@ -59,16 +59,16 @@ class ASRProvider(ASRProviderBase):
 
             if result and result["err_no"] == 0:
                 logger.bind(tag=TAG).debug(
-                    f"百度语音识别耗时: {time.time() - start_time:.3f}s | 结果: {result}"
+                    f"Baidu ASR took: {time.time() - start_time:.3f}s | result: {result}"
                 )
                 result = result["result"][0]
                 return result, artifacts.file_path
             else:
                 raise Exception(
-                    f"百度语音识别失败，错误码: {result['err_no']}，错误信息: {result['err_msg']}"
+                    f"Baidu ASR failed, code: {result['err_no']}, message: {result['err_msg']}"
                 )
                 return None, artifacts.file_path
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"处理音频时发生错误！{e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"Error processing audio! {e}", exc_info=True)
             return None, None

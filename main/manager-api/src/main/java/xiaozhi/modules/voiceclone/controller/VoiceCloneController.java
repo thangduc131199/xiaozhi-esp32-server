@@ -87,7 +87,7 @@ public class VoiceCloneController {
             String originalFilename = voiceFile.getOriginalFilename();
             String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
             if (!extension.equals(".mp3") && !extension.equals(".wav")) {
-                return new Result<String>().error("只允许上传.mp3和.wav格式的文件");
+                return new Result<String>().error(ErrorCode.VOICE_CLONE_FILE_TYPE_INVALID);
             }
 
             // 验证文件大小 (最大10MB)

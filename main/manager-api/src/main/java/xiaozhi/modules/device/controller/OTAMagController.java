@@ -1,5 +1,6 @@
 package xiaozhi.modules.device.controller;
 
+import xiaozhi.common.utils.MessageUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -86,16 +87,16 @@ public class OTAMagController {
     @RequiresPermissions("sys:role:superAdmin")
     public Result<Void> save(@RequestBody OtaEntity entity) {
         if (entity == null) {
-            return new Result<Void>().error("固件信息不能为空");
+            return new Result<Void>().error(ErrorCode.FIRMWARE_INFO_EMPTY);
         }
         if (StringUtils.isBlank(entity.getFirmwareName())) {
-            return new Result<Void>().error("固件名称不能为空");
+            return new Result<Void>().error(ErrorCode.FIRMWARE_NAME_EMPTY);
         }
         if (StringUtils.isBlank(entity.getType())) {
-            return new Result<Void>().error("固件类型不能为空");
+            return new Result<Void>().error(ErrorCode.FIRMWARE_TYPE_EMPTY);
         }
         if (StringUtils.isBlank(entity.getVersion())) {
-            return new Result<Void>().error("版本号不能为空");
+            return new Result<Void>().error(ErrorCode.FIRMWARE_VERSION_EMPTY);
         }
         try {
             otaService.save(entity);
@@ -110,7 +111,7 @@ public class OTAMagController {
     @RequiresPermissions("sys:role:superAdmin")
     public Result<Void> delete(@PathVariable("id") String[] ids) {
         if (ids == null || ids.length == 0) {
-            return new Result<Void>().error("删除的固件ID不能为空");
+            return new Result<Void>().error(ErrorCode.FIRMWARE_DELETE_ID_EMPTY);
         }
         otaService.delete(ids);
         return new Result<Void>();
@@ -121,7 +122,7 @@ public class OTAMagController {
     @RequiresPermissions("sys:role:superAdmin")
     public Result<?> update(@PathVariable("id") String id, @RequestBody OtaEntity entity) {
         if (entity == null) {
-            return new Result<>().error("固件信息不能为空");
+            return new Result<>().error(ErrorCode.FIRMWARE_INFO_EMPTY);
         }
         entity.setId(id);
         try {
@@ -246,18 +247,18 @@ public class OTAMagController {
     @RequiresPermissions("sys:role:superAdmin")
     public Result<String> uploadFirmware(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return new Result<String>().error("上传文件不能为空");
+            return new Result<String>().error(ErrorCode.UPLOAD_FILE_EMPTY);
         }
 
         // 检查文件扩展名
         String originalFilename = file.getOriginalFilename();
         if (originalFilename == null) {
-            return new Result<String>().error("文件名不能为空");
+            return new Result<String>().error(ErrorCode.FILE_NAME_EMPTY);
         }
 
         String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
         if (!extension.equals(".bin") && !extension.equals(".apk")) {
-            return new Result<String>().error("只允许上传.bin和.apk格式的文件");
+            return new Result<String>().error(ErrorCode.FIRMWARE_FILE_TYPE_INVALID);
         }
 
         try {
@@ -288,7 +289,7 @@ public class OTAMagController {
             // 返回文件路径
             return new Result<String>().ok(filePath.toString());
         } catch (IOException e) {
-            return new Result<String>().error("文件上传失败：" + e.getMessage());
+            return new Result<String>().error(ErrorCode.FILE_UPLOAD_FAILED, MessageUtils.getMessage(ErrorCode.FILE_UPLOAD_FAILED, e.getMessage()));
         }
     }
 

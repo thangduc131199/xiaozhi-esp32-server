@@ -214,7 +214,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 if (models != null && !models.isEmpty()) {
                     dto.setRagModelId(models.get(0).getId());
                 } else {
-                    throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "未指定且无可用默认 RAG 模型");
+                    throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "No RAG model specified and no default RAG model available");
                 }
             }
 
@@ -227,7 +227,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
 
             DatasetDTO.InfoVO ragResponse = adapter.createDataset(createReq);
             if (ragResponse == null || StringUtils.isBlank(ragResponse.getId())) {
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAG创建返回无效: 缺失ID");
+                throw new RenException(ErrorCode.RAG_API_ERROR, "invalid RAG create response: missing ID");
             }
             datasetId = ragResponse.getId();
 
@@ -283,7 +283,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
             if (e instanceof RenException) {
                 throw (RenException) e;
             }
-            throw new RenException(ErrorCode.RAG_API_ERROR, "创建知识库失败: " + e.getMessage());
+            throw new RenException(ErrorCode.RAG_API_ERROR, "failed to create knowledge base: " + e.getMessage());
         }
     }
 
@@ -357,7 +357,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 if (e instanceof RenException) {
                     throw (RenException) e;
                 }
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAG更新失败: " + e.getMessage());
+                throw new RenException(ErrorCode.RAG_API_ERROR, "RAG update failed: " + e.getMessage());
             }
         }
 
@@ -404,7 +404,7 @@ public class KnowledgeBaseServiceImpl extends BaseServiceImpl<KnowledgeBaseDao, 
                 if (e instanceof RenException) {
                     throw (RenException) e;
                 }
-                throw new RenException(ErrorCode.RAG_API_ERROR, "RAG删除失败: " + e.getMessage());
+                throw new RenException(ErrorCode.RAG_API_ERROR, "RAG delete failed: " + e.getMessage());
             }
         } else {
             log.warn("datasetId或ragModelId为空，跳过RAG删除");

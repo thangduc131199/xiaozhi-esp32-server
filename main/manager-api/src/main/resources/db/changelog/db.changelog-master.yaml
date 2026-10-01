@@ -753,3 +753,73 @@ databaseChangeLog:
         - sqlFile:
             encoding: utf8
             path: classpath:db/changelog/202609172100.sql
+  - changeSet:
+      id: 202609300900
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609300900.sql
+  - changeSet:
+      id: 202609301000
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301000.sql
+  - changeSet:
+      id: 202609301100
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301100.sql
+  - changeSet:
+      id: 202609301200
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301200.sql
+  - changeSet:
+      id: 202609301300
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301300.sql
+  - changeSet:
+      id: 202609301400
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301400.sql
+  - changeSet:
+      id: 202609301500
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301500.sql
+  - changeSet:
+      id: 202609301600
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301600.sql
+  - changeSet:
+      id: 202609301700
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301700.sql
+  - changeSet:
+      id: 202609301800
+      author: ThangND
+      changes:
+        - sqlFile:
+            encoding: utf8
+            path: classpath:db/changelog/202609301800.sql

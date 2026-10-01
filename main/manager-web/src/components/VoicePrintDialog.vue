@@ -41,7 +41,9 @@ export default {
   props: {
     title: {
       type: String,
-      default: '添加说话人'
+      default() {
+        return this.$t('voicePrintDialog.addSpeaker')
+      }
     },
     visible: {
       type: Boolean,
@@ -70,13 +72,13 @@ export default {
       ],
       rules: {
         introduce: [
-          { required: true, message: '请输入描述', trigger: "blur" }
+          { required: true, message: this.$t('voicePrintDialog.requiredDescription'), trigger: "blur" }
         ],
         sourceName: [
-          { required: true, message: '请输入名称', trigger: "blur" }
+          { required: true, message: this.$t('ui.enterName'), trigger: "blur" }
         ],
         audioId: [
-          { required: true, message: '请选择音频向量', trigger: "change" }
+          { required: true, message: this.$t('voicePrintDialog.requiredAudioVector'), trigger: "change" }
         ]
       }
     };

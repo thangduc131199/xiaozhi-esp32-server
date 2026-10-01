@@ -2,6 +2,7 @@ import httpx
 import openai
 from openai.types import CompletionUsage
 from config.logger import setup_logging
+from core.utils import i18n
 from core.utils.util import check_model_key
 from core.providers.llm.base import LLMProviderBase
 from urllib.parse import urlparse
@@ -16,6 +17,7 @@ THINKING_DISABLED_DOMAINS = {
     "bigmodel.cn": {"thinking": {"type": "disabled"}},
     "moonshot.cn": {"thinking": {"type": "disabled"}},
     "volces.com": {"thinking": {"type": "disabled"}},
+    "generativelanguage.googleapis.com": {"reasoning_effort": "none"},
 }
 
 
@@ -63,13 +65,28 @@ class LLMProvider(LLMProviderBase):
                 setattr(self, param, None)
 
         logger.debug(
-            f"意图识别参数初始化: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}"
+            f"Intent recognition params initialized: {self.temperature}, {self.max_tokens}, {self.top_p}, {self.frequency_penalty}"
         )
 
         model_key_msg = check_model_key("LLM", self.api_key)
         if model_key_msg:
             logger.bind(tag=TAG).error(model_key_msg)
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=custom_timeout)
+
+        # 回复语种提醒：追加在对话末尾，防止模型在长对话或工具结果影响下切换语种
+        # 留空使用默认提醒（按 default_language，仅主对话LLM会带此参数），填 off 关闭
+        reminder = str(config.get("reply_language_reminder") or "").strip()
+        if reminder.lower() == "off":
+            reminder = ""
+        elif not reminder and "default_language" in config:
+            reminder = i18n.t(config, "reply_language_reminder")
+        self.reply_language_reminder = reminder
+
+    def _with_language_reminder(self, dialogue):
+        """返回追加了语种提醒的对话副本（不修改原对话）"""
+        if not self.reply_language_reminder:
+            return dialogue
+        return dialogue + [{"role": "system", "content": self.reply_language_reminder}]
 
     @staticmethod
     def normalize_dialogue(dialogue):
@@ -86,11 +103,12 @@ class LLMProvider(LLMProviderBase):
         for disabled_domain, params in THINKING_DISABLED_DOMAINS.items():
             if disabled_domain in domain:
                 request_params.setdefault("extra_body", {}).update(params)
-                logger.bind(tag=TAG).info(f"为域名 {domain} 禁用思考模式，参数: {params}")
+                logger.bind(tag=TAG).info(f"Disabling thinking mode for domain {domain}, params: {params}")
                 break
 
     def response(self, session_id, dialogue, **kwargs):
         dialogue = self.normalize_dialogue(dialogue)
+        dialogue = self._with_language_reminder(dialogue)
 
         request_params = {
             "model": self.model_name,
@@ -137,6 +155,7 @@ class LLMProvider(LLMProviderBase):
 
     def response_with_functions(self, session_id, dialogue, functions=None, **kwargs):
         dialogue = self.normalize_dialogue(dialogue)
+        dialogue = self._with_language_reminder(dialogue)
 
         request_params = {
             "model": self.model_name,
@@ -171,9 +190,9 @@ class LLMProvider(LLMProviderBase):
                 elif isinstance(getattr(chunk, "usage", None), CompletionUsage):
                     usage_info = getattr(chunk, "usage", None)
                     logger.bind(tag=TAG).info(
-                        f"Token 消耗：输入 {getattr(usage_info, 'prompt_tokens', '未知')}，"
-                        f"输出 {getattr(usage_info, 'completion_tokens', '未知')}，"
-                        f"共计 {getattr(usage_info, 'total_tokens', '未知')}"
+                        f"Token usage: input {getattr(usage_info, 'prompt_tokens', 'unknown')}, "
+                        f"output {getattr(usage_info, 'completion_tokens', 'unknown')}, "
+                        f"total {getattr(usage_info, 'total_tokens', 'unknown')}"
                     )
         finally:
             stream.close()

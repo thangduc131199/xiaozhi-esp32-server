@@ -1,3 +1,4 @@
+import i18n from '../../i18n/index';
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
@@ -62,7 +63,7 @@ export default {
             })
             .networkFail((err) => {
                 console.error('更新OTA状态失败:', err)
-                this.$message.error(err.msg || '更新OTA状态失败')
+                this.$message.error(err.msg || i18n.t('apiError.updateOtaStatus'))
                 RequestService.reAjaxFun(() => {
                     this.updateDeviceInfo(id, payload, callback)
                 })

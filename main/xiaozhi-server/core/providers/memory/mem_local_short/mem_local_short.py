@@ -6,6 +6,7 @@ import yaml
 from config.config_loader import get_project_dir
 from config.manage_api_client import generate_and_save_chat_summary
 import asyncio
+from core.utils import i18n
 from core.utils.util import check_model_key
 
 
@@ -76,6 +77,77 @@ short_term_memory_prompt = """
 """
 
 
+short_term_memory_prompt_vi = """
+# Người dệt ký ức
+
+## Sứ mệnh
+Xây dựng mạng ký ức động có thể phát triển, giữ lại thông tin quan trọng trong không gian giới hạn và theo dõi sự thay đổi của thông tin.
+Dựa vào đoạn hội thoại, tóm tắt những thông tin quan trọng của user để phục vụ cá nhân hoá tốt hơn trong các cuộc trò chuyện sau.
+
+## Nguyên tắc ghi nhớ
+### 1. Đánh giá 3 chiều (bắt buộc mỗi lần cập nhật)
+| Chiều          | Tiêu chí                              | Trọng số |
+|----------------|---------------------------------------|----------|
+| Tính thời sự   | Độ mới của thông tin (theo lượt thoại) | 40%      |
+| Cường độ cảm xúc | Có đánh dấu 💖 / số lần nhắc lại      | 35%      |
+| Mật độ liên kết | Số liên kết với thông tin khác        | 25%      |
+
+### 2. Cơ chế cập nhật
+**Ví dụ đổi tên:**
+Ký ức gốc: "Tên cũ": ["Minh"], "Tên hiện tại": "Minh Anh"
+Điều kiện: khi phát hiện tín hiệu như "mình tên là X", "gọi mình là Y"
+Các bước:
+1. Chuyển tên cũ vào danh sách "Tên cũ"
+2. Ghi mốc thời gian: "2024-02-15 14:32: đổi tên thành Minh Anh"
+3. Thêm vào "Sự kiện": "Từ Minh thành Minh Anh"
+
+### 3. Tối ưu dung lượng
+- **Nén thông tin**: dùng ký hiệu để tăng mật độ
+  - ✅"Minh Anh[HN/kỹ sư PM/🐱]"
+  - ❌"Kỹ sư phần mềm ở Hà Nội, có nuôi mèo"
+- **Cảnh báo loại bỏ**: khi tổng số chữ ≥ 900
+  1. Xoá thông tin có điểm < 60 và 3 lượt không được nhắc tới
+  2. Gộp các mục giống nhau (giữ mốc thời gian gần nhất)
+
+## Cấu trúc ký ức
+Chỉ xuất chuỗi JSON parse được, không giải thích, không chú thích. Khi lưu ký ức chỉ lấy thông tin từ hội thoại, không trộn nội dung ví dụ. Viết nội dung bằng tiếng Việt.
+```json
+{
+  "Hồ sơ": {
+    "Danh tính": {
+      "Tên hiện tại": "",
+      "Đặc điểm": []
+    },
+    "Sự kiện": [
+      {
+        "Sự kiện": "Vào công ty mới",
+        "Thời gian": "2024-03-20",
+        "Cảm xúc": 0.9,
+        "Liên quan": ["trà chiều"],
+        "Thời hạn": 30
+      }
+    ]
+  },
+  "Quan hệ": {
+    "Chủ đề thường gặp": {"công việc": 12},
+    "Liên kết ngầm": [""]
+  },
+  "Cần phản hồi": {
+    "Việc gấp": ["Việc cần xử lý ngay"],
+    "Quan tâm chủ động": ["Sự giúp đỡ có thể chủ động đưa ra"]
+  },
+  "Câu nói đáng nhớ": [
+    "Khoảnh khắc chạm đến cảm xúc nhất, nguyên văn lời của user"
+  ]
+}
+```
+"""
+
+MEMORY_PROMPTS = {
+    "zh": {"prompt": short_term_memory_prompt, "history": "历史记忆：\n", "now": "当前时间："},
+    "vi": {"prompt": short_term_memory_prompt_vi, "history": "Ký ức trước đây:\n", "now": "Thời gian hiện tại: "},
+}
+
 def extract_json_data(json_code):
     start = json_code.find("```json")
     # 从start开始找到下一个```结束
@@ -135,9 +207,9 @@ class MemoryProvider(MemoryProviderBase):
     async def save_memory(self, msgs, session_id=None):
         # 打印使用的模型信息
         model_info = getattr(self.llm, "model_name", str(self.llm.__class__.__name__))
-        logger.bind(tag=TAG).debug(f"使用记忆保存模型: {model_info}")
+        logger.bind(tag=TAG).debug(f"Using memory model: {model_info}")
         api_key = getattr(self.llm, "api_key", None)
-        memory_key_msg = check_model_key("记忆总结专用LLM", api_key)
+        memory_key_msg = check_model_key("Memory summary LLM", api_key)
         if memory_key_msg:
             logger.bind(tag=TAG).error(memory_key_msg)
         if self.llm is None:
@@ -165,18 +237,19 @@ class MemoryProvider(MemoryProviderBase):
                 msgStr += f"User: {content}\n"
             elif msg.role == "assistant":
                 msgStr += f"Assistant: {content}\n"
+        texts = MEMORY_PROMPTS[i18n.get_language(self.config)]
         if self.short_memory and len(self.short_memory) > 0:
-            msgStr += "历史记忆：\n"
+            msgStr += texts["history"]
             msgStr += self.short_memory
 
         # 当前时间
         time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        msgStr += f"当前时间：{time_str}"
+        msgStr += f"{texts['now']}{time_str}"
 
         if self.save_to_file:
             try:
                 result = self.llm.response_no_stream(
-                    short_term_memory_prompt,
+                    texts["prompt"],
                     msgStr,
                     max_tokens=2000,
                     temperature=0.2,

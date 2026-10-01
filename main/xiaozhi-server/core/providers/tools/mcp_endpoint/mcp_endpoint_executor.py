@@ -1,8 +1,9 @@
 """MCP接入点工具执行器"""
 
+from core.utils import i18n
 from typing import Dict, Any
 from ..base import ToolType, ToolDefinition, ToolExecutor
-from plugins_func.register import Action, ActionResponse
+from plugins_func.register import Action, ActionResponse, tool_error_response
 from .mcp_endpoint_handler import call_mcp_endpoint_tool
 
 
@@ -19,13 +20,13 @@ class MCPEndpointExecutor(ToolExecutor):
         if not hasattr(conn, "mcp_endpoint_client") or not conn.mcp_endpoint_client:
             return ActionResponse(
                 action=Action.ERROR,
-                response="MCP接入点客户端未初始化",
+                response=i18n.tr(conn.config, "MCP接入点客户端未初始化"),
             )
 
         if not await conn.mcp_endpoint_client.is_ready():
             return ActionResponse(
                 action=Action.ERROR,
-                response="MCP接入点客户端未准备就绪",
+                response=i18n.tr(conn.config, "MCP接入点客户端未准备就绪"),
             )
 
         try:
@@ -58,11 +59,8 @@ class MCPEndpointExecutor(ToolExecutor):
                 )
 
             return ActionResponse(action=Action.REQLLM, result=str(result))
-
-        except ValueError as e:
-            return ActionResponse(action=Action.NOTFOUND, response=str(e))
         except Exception as e:
-            return ActionResponse(action=Action.ERROR, response=str(e))
+            return tool_error_response(e)
 
     def get_tools(self) -> Dict[str, ToolDefinition]:
         """获取所有MCP接入点工具"""

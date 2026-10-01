@@ -29,7 +29,7 @@ class ServerTextMessageHandler(TextMessageHandler):
                     {
                         "type": "server",
                         "status": "error",
-                        "message": "服务器密钥验证失败",
+                        "message": "Server secret verification failed",
                     }
                 )
             )
@@ -44,7 +44,7 @@ class ServerTextMessageHandler(TextMessageHandler):
                             {
                                 "type": "server",
                                 "status": "error",
-                                "message": "无法获取服务器实例",
+                                "message": "Unable to get server instance",
                                 "content": {"action": "update_config"},
                             }
                         )
@@ -57,7 +57,7 @@ class ServerTextMessageHandler(TextMessageHandler):
                             {
                                 "type": "server",
                                 "status": "error",
-                                "message": "更新服务器配置失败",
+                                "message": "Failed to update server config",
                                 "content": {"action": "update_config"},
                             }
                         )
@@ -70,19 +70,19 @@ class ServerTextMessageHandler(TextMessageHandler):
                         {
                             "type": "server",
                             "status": "success",
-                            "message": "配置更新成功",
+                            "message": "Config updated successfully",
                             "content": {"action": "update_config"},
                         }
                     )
                 )
             except Exception as e:
-                conn.logger.bind(tag=TAG).error(f"更新配置失败: {str(e)}")
+                conn.logger.bind(tag=TAG).error(f"Failed to update config: {str(e)}")
                 await conn.websocket.send(
                     json.dumps(
                         {
                             "type": "server",
                             "status": "error",
-                            "message": f"更新配置失败: {str(e)}",
+                            "message": f"Failed to update config: {str(e)}",
                             "content": {"action": "update_config"},
                         }
                     )

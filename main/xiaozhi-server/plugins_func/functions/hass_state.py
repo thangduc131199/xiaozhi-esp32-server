@@ -1,4 +1,5 @@
 import httpx
+from core.utils import i18n
 from config.logger import setup_logging
 from plugins_func.functions.hass_init import initialize_hass_handler
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
@@ -76,10 +77,10 @@ async def hass_get_state(conn: "ConnectionHandler", entity_id=""):
         ha_response = await handle_hass_get_state(conn, entity_id)
         return ActionResponse(Action.REQLLM, ha_response, None)
     except httpx.TimeoutException:
-        logger.bind(tag=TAG).error("获取Home Assistant状态超时")
-        return ActionResponse(Action.ERROR, "请求超时", None)
+        logger.bind(tag=TAG).error("Timed out getting Home Assistant state")
+        return ActionResponse(Action.ERROR, i18n.tr(conn.config, "请求超时"), None)
     except Exception as e:
-        error_msg = f"执行Home Assistant操作失败"
+        error_msg = i18n.tr(conn.config, "执行Home Assistant操作失败")
         logger.bind(tag=TAG).error(error_msg)
         return ActionResponse(Action.ERROR, error_msg, None)
 
@@ -92,10 +93,10 @@ async def hass_set_state(conn: "ConnectionHandler", entity_id="", state=None):
         ha_response = await handle_hass_set_state(conn, entity_id, state)
         return ActionResponse(Action.REQLLM, ha_response, None)
     except httpx.TimeoutException:
-        logger.bind(tag=TAG).error("设置Home Assistant状态超时")
-        return ActionResponse(Action.ERROR, "请求超时", None)
+        logger.bind(tag=TAG).error("Timed out setting Home Assistant state")
+        return ActionResponse(Action.ERROR, i18n.tr(conn.config, "请求超时"), None)
     except Exception as e:
-        error_msg = f"执行Home Assistant操作失败"
+        error_msg = i18n.tr(conn.config, "执行Home Assistant操作失败")
         logger.bind(tag=TAG).error(error_msg)
         return ActionResponse(Action.ERROR, error_msg, None)
 
@@ -111,48 +112,48 @@ async def handle_hass_get_state(conn: "ConnectionHandler", entity_id):
         response = await client.get(url, headers=headers)
 
     if response.status_code == 200:
-        responsetext = "设备状态:" + response.json()["state"] + " "
-        logger.bind(tag=TAG).info(f"api返回内容: {response.json()}")
+        responsetext = i18n.tr(conn.config, "设备状态:") + response.json()["state"] + " "
+        logger.bind(tag=TAG).info(f"API response: {response.json()}")
 
         if "media_title" in response.json()["attributes"]:
             responsetext = (
                 responsetext
-                + "正在播放的是:"
+                + i18n.tr(conn.config, "正在播放的是:")
                 + str(response.json()["attributes"]["media_title"])
                 + " "
             )
         if "volume_level" in response.json()["attributes"]:
             responsetext = (
                 responsetext
-                + "音量是:"
+                + i18n.tr(conn.config, "音量是:")
                 + str(response.json()["attributes"]["volume_level"])
                 + " "
             )
         if "color_temp_kelvin" in response.json()["attributes"]:
             responsetext = (
                 responsetext
-                + "色温是:"
+                + i18n.tr(conn.config, "色温是:")
                 + str(response.json()["attributes"]["color_temp_kelvin"])
                 + " "
             )
         if "rgb_color" in response.json()["attributes"]:
             responsetext = (
                 responsetext
-                + "rgb颜色是:"
+                + i18n.tr(conn.config, "rgb颜色是:")
                 + str(response.json()["attributes"]["rgb_color"])
                 + " "
             )
         if "brightness" in response.json()["attributes"]:
             responsetext = (
                 responsetext
-                + "亮度是:"
+                + i18n.tr(conn.config, "亮度是:")
                 + str(response.json()["attributes"]["brightness"])
                 + " "
             )
-        logger.bind(tag=TAG).info(f"查询返回内容: {responsetext}")
+        logger.bind(tag=TAG).info(f"Query response: {responsetext}")
         return responsetext
     else:
-        return f"切换失败，错误码: {response.status_code}"
+        return i18n.tr(conn.config, "切换失败，错误码: {code}", code=response.status_code)
 
 
 async def handle_hass_set_state(conn: "ConnectionHandler", entity_id, state):
@@ -166,12 +167,12 @@ async def handle_hass_set_state(conn: "ConnectionHandler", entity_id, state):
     if len(domains) > 1:
         domain = domains[0]
     else:
-        return "执行失败，错误的设备id"
+        return i18n.tr(conn.config, "执行失败，错误的设备id")
     action = ""
     arg = ""
     value = ""
     if state["type"] == "turn_on":
-        description = "设备已打开"
+        description = i18n.tr(conn.config, "设备已打开")
         if domain == "cover":
             action = "open_cover"
         elif domain == "vacuum":
@@ -179,7 +180,7 @@ async def handle_hass_set_state(conn: "ConnectionHandler", entity_id, state):
         else:
             action = "turn_on"
     elif state["type"] == "turn_off":
-        description = "设备已关闭"
+        description = i18n.tr(conn.config, "设备已关闭")
         if domain == "cover":
             action = "close_cover"
         elif domain == "vacuum":
@@ -187,50 +188,50 @@ async def handle_hass_set_state(conn: "ConnectionHandler", entity_id, state):
         else:
             action = "turn_off"
     elif state["type"] == "brightness_up":
-        description = "灯光已调亮"
+        description = i18n.tr(conn.config, "灯光已调亮")
         action = "turn_on"
         arg = "brightness_step_pct"
         value = 10
     elif state["type"] == "brightness_down":
-        description = "灯光已调暗"
+        description = i18n.tr(conn.config, "灯光已调暗")
         action = "turn_on"
         arg = "brightness_step_pct"
         value = -10
     elif state["type"] == "brightness_value":
-        description = f"亮度已调整到{state['input']}"
+        description = i18n.tr(conn.config, "亮度已调整到{value}", value=state["input"])
         action = "turn_on"
         arg = "brightness_pct"
         value = state["input"]
     elif state["type"] == "set_color":
-        description = f"颜色已调整到{state['rgb_color']}"
+        description = i18n.tr(conn.config, "颜色已调整到{value}", value=state["rgb_color"])
         action = "turn_on"
         arg = "rgb_color"
         value = state["rgb_color"]
     elif state["type"] == "set_kelvin":
-        description = f"色温已调整到{state['input']}K"
+        description = i18n.tr(conn.config, "色温已调整到{value}K", value=state["input"])
         action = "turn_on"
         arg = "kelvin"
         value = state["input"]
     elif state["type"] == "volume_up":
-        description = "音量已调大"
+        description = i18n.tr(conn.config, "音量已调大")
         action = state["type"]
     elif state["type"] == "volume_down":
-        description = "音量已调小"
+        description = i18n.tr(conn.config, "音量已调小")
         action = state["type"]
     elif state["type"] == "volume_set":
-        description = f"音量已调整到{state['input']}"
+        description = i18n.tr(conn.config, "音量已调整到{value}", value=state["input"])
         action = state["type"]
         arg = "volume_level"
         value = state["input"]
         if state["input"] >= 1:
             value = state["input"] / 100
     elif state["type"] == "volume_mute":
-        description = f"设备已静音"
+        description = i18n.tr(conn.config, "设备已静音")
         action = state["type"]
         arg = "is_volume_muted"
         value = state["is_muted"]
     elif state["type"] == "pause":
-        description = f"设备已暂停"
+        description = i18n.tr(conn.config, "设备已暂停")
         action = state["type"]
         if domain == "media_player":
             action = "media_pause"
@@ -239,13 +240,13 @@ async def handle_hass_set_state(conn: "ConnectionHandler", entity_id, state):
         if domain == "vacuum":
             action = "pause"
     elif state["type"] == "continue":
-        description = f"设备已继续"
+        description = i18n.tr(conn.config, "设备已继续")
         if domain == "media_player":
             action = "media_play"
         if domain == "vacuum":
             action = "start"
     else:
-        return f"{domain} {state['type']}功能尚未支持"
+        return i18n.tr(conn.config, "{domain} {type}功能尚未支持", domain=domain, type=state["type"])
 
     if arg == "":
         data = {
@@ -260,9 +261,9 @@ async def handle_hass_set_state(conn: "ConnectionHandler", entity_id, state):
         response = await client.post(url, headers=headers, json=data)
 
     logger.bind(tag=TAG).info(
-        f"设置状态:{description},url:{url},return_code:{response.status_code}"
+        f"Set state: {description}, url: {url}, return_code: {response.status_code}"
     )
     if response.status_code == 200:
         return description
     else:
-        return f"设置失败，错误码: {response.status_code}"
+        return i18n.tr(conn.config, "设置失败，错误码: {code}", code=response.status_code)

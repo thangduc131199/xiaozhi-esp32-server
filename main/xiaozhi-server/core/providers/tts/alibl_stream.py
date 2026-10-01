@@ -76,9 +76,9 @@ class TTSProvider(TTSProviderBase):
             current_time = time.time()
             if self.ws and current_time - self.last_active_time < 60:
                 # 一分钟内才可以复用链接进行连续对话
-                logger.bind(tag=TAG).debug(f"使用已有链接...")
+                logger.bind(tag=TAG).debug(f"Reusing existing connection...")
                 return self.ws
-            logger.bind(tag=TAG).debug("开始建立新连接...")
+            logger.bind(tag=TAG).debug("Establishing new connection...")
 
             # 建立新连接前取消旧监听任务
             await self._cancel_monitor_task()
@@ -92,11 +92,11 @@ class TTSProvider(TTSProviderBase):
                 **self.ws_connect_options,
             )
 
-            logger.bind(tag=TAG).debug("WebSocket连接建立成功")
+            logger.bind(tag=TAG).debug("WebSocket connection established")
             self.last_active_time = current_time
             return self.ws
         except Exception as e:
-            logger.bind(tag=TAG).error(f"建立连接失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Failed to establish connection: {str(e)}")
             self.ws = None
             self.last_active_time = None
             raise
@@ -109,14 +109,14 @@ class TTSProvider(TTSProviderBase):
 
                 if self.conn.client_abort:
                     try:
-                        logger.bind(tag=TAG).info("收到打断信息，终止TTS文本处理线程")
+                        logger.bind(tag=TAG).info("Received interrupt, stopping TTS text processing thread")
                         asyncio.run_coroutine_threadsafe(
                             self.finish_session(self.conn.sentence_id),
                             loop=self.conn.loop,
                         )
                         continue
                     except Exception as e:
-                        logger.bind(tag=TAG).error(f"取消TTS会话失败: {str(e)}")
+                        logger.bind(tag=TAG).error(f"Failed to cancel TTS session: {str(e)}")
                         continue
 
                 # 过滤旧消息：检查sentence_id是否匹配
@@ -124,7 +124,7 @@ class TTSProvider(TTSProviderBase):
                     continue
 
                 logger.bind(tag=TAG).debug(
-                    f"收到TTS任务｜{message.sentence_type.name} ｜ {message.content_type.name} | 会话ID: {message.sentence_id}"
+                    f"Received TTS task | {message.sentence_type.name} | {message.content_type.name} | session ID: {message.sentence_id}"
                 )
 
                 if message.sentence_type == SentenceType.FIRST:
@@ -134,25 +134,25 @@ class TTSProvider(TTSProviderBase):
                     try:
                         if not getattr(self.conn, "sentence_id", None): 
                             self.conn.sentence_id = uuid.uuid4().hex
-                            logger.bind(tag=TAG).debug(f"自动生成新的 会话ID: {self.conn.sentence_id}")
+                            logger.bind(tag=TAG).debug(f"Auto-generated new session ID: {self.conn.sentence_id}")
 
-                        logger.bind(tag=TAG).debug("开始启动TTS会话...")
+                        logger.bind(tag=TAG).debug("Starting TTS session...")
                         future = asyncio.run_coroutine_threadsafe(
                             self.start_session(self.conn.sentence_id),
                             loop=self.conn.loop,
                         )
                         future.result(timeout=self.tts_timeout)
                         self.before_stop_play_files.clear()
-                        logger.bind(tag=TAG).debug("TTS会话启动成功")
+                        logger.bind(tag=TAG).debug("TTS session started")
                     except Exception as e:
-                        logger.bind(tag=TAG).error(f"启动TTS会话失败: {str(e)}")
+                        logger.bind(tag=TAG).error(f"Failed to start TTS session: {str(e)}")
                         continue
 
                 elif ContentType.TEXT == message.content_type:
                     if message.content_detail:
                         try:
                             logger.bind(tag=TAG).debug(
-                                f"开始发送TTS文本: {message.content_detail}"
+                                f"Sending TTS text: {message.content_detail}"
                             )
                             future = asyncio.run_coroutine_threadsafe(
                                 self.text_to_speak(message.content_detail, None),
@@ -160,12 +160,12 @@ class TTSProvider(TTSProviderBase):
                             )
                             future.result(timeout=self.tts_timeout)
                         except Exception as e:
-                            logger.bind(tag=TAG).error(f"发送TTS文本失败: {str(e)}")
+                            logger.bind(tag=TAG).error(f"Failed to send TTS text: {str(e)}")
                             continue
 
                 elif ContentType.FILE == message.content_type:
                     logger.bind(tag=TAG).info(
-                        f"添加音频文件到待播放列表: {message.content_file}"
+                        f"Adding audio file to playback list: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
@@ -173,21 +173,21 @@ class TTSProvider(TTSProviderBase):
 
                 if message.sentence_type == SentenceType.LAST:
                     try:
-                        logger.bind(tag=TAG).debug("开始结束TTS会话...")
+                        logger.bind(tag=TAG).debug("Finishing TTS session...")
                         future = asyncio.run_coroutine_threadsafe(
                             self.finish_session(self.conn.sentence_id),
                             loop=self.conn.loop,
                         )
                         future.result()
                     except Exception as e:
-                        logger.bind(tag=TAG).error(f"结束TTS会话失败: {str(e)}")
+                        logger.bind(tag=TAG).error(f"Failed to finish TTS session: {str(e)}")
                         continue
 
             except queue.Empty:
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"Failed to process TTS text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
                 )
                 continue
 
@@ -195,7 +195,7 @@ class TTSProvider(TTSProviderBase):
         """发送文本到TTS服务进行合成"""
         try:
             if self.ws is None:
-                logger.bind(tag=TAG).warning("WebSocket连接不存在，终止发送文本")
+                logger.bind(tag=TAG).warning("WebSocket connection does not exist, stopping text sending")
                 return
 
             # 过滤Markdown
@@ -220,7 +220,7 @@ class TTSProvider(TTSProviderBase):
                         self.last_active_time = time.time()
             return
         except Exception as e:
-            logger.bind(tag=TAG).error(f"发送TTS文本失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Failed to send TTS text: {str(e)}")
             if self.ws:
                 try:
                     await self.ws.close()
@@ -231,7 +231,7 @@ class TTSProvider(TTSProviderBase):
 
     async def start_session(self, session_id):
         """启动TTS会话"""
-        logger.bind(tag=TAG).debug(f"开始会话～～{session_id}")
+        logger.bind(tag=TAG).debug(f"Starting session ~~{session_id}")
         try:
             # 上个会话处于激活状态时关闭上个连接新建链接
             if self.activate_session:
@@ -245,7 +245,7 @@ class TTSProvider(TTSProviderBase):
 
             # 启动监听任务
             if self._monitor_task is None or self._monitor_task.done():
-                logger.bind(tag=TAG).debug("启动监听任务...")
+                logger.bind(tag=TAG).debug("Starting listener task...")
                 self._monitor_task = asyncio.create_task(self._start_monitor_tts_response())
 
             # 发送run-task消息启动会话
@@ -275,15 +275,15 @@ class TTSProvider(TTSProviderBase):
 
             await self.ws.send(json.dumps(run_task_message))
             self.last_active_time = time.time()
-            logger.bind(tag=TAG).debug("会话启动请求已发送")
+            logger.bind(tag=TAG).debug("Session start request sent")
         except Exception as e:
-            logger.bind(tag=TAG).error(f"启动会话失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Failed to start session: {str(e)}")
             await self.close()
             raise
 
     async def finish_session(self, session_id):
         """结束TTS会话"""
-        logger.bind(tag=TAG).debug(f"关闭会话～～{session_id}")
+        logger.bind(tag=TAG).debug(f"Closing session ~~{session_id}")
         try:
             if self.ws and session_id:
                 # 发送finish-task消息
@@ -302,7 +302,7 @@ class TTSProvider(TTSProviderBase):
                 self.last_active_time = time.time()
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"关闭会话失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Failed to close session: {str(e)}")
             await self.close()
             raise
 
@@ -330,7 +330,7 @@ class TTSProvider(TTSProviderBase):
             except asyncio.CancelledError:
                 pass
             except Exception as e:
-                logger.bind(tag=TAG).warning(f"取消监听任务错误: {e}")
+                logger.bind(tag=TAG).warning(f"Error cancelling listener task: {e}")
         self._monitor_task = None
 
     async def _start_monitor_tts_response(self):
@@ -351,44 +351,44 @@ class TTSProvider(TTSProviderBase):
                             # 只处理当前活跃会话的响应
                             if task_id and self.conn.sentence_id != task_id:
                                 if event in ["task-finished", "task-failed"]:
-                                    logger.bind(tag=TAG).debug(f"收到残余下行结束响应重置会话状态～～")
+                                    logger.bind(tag=TAG).debug(f"Received leftover downstream finish response, resetting session state ~~")
                                     self.activate_session = False
                                 continue
 
                             if event == "task-started":
-                                logger.bind(tag=TAG).debug("TTS任务启动成功~")
+                                logger.bind(tag=TAG).debug("TTS task started~")
                             elif event == "result-generated":
                                 output = data.get("payload", {}).get("output", {})
                                 if output.get("type") == "sentence-begin":
                                     original_text = output.get("original_text")
                                     self.tts_text = self._restore_original_text(original_text)
-                                    logger.bind(tag=TAG).debug(f"句子语音生成开始: {self.tts_text}")
+                                    logger.bind(tag=TAG).debug(f"Sentence audio generation started: {self.tts_text}")
                                     self.tts_audio_queue.put((SentenceType.FIRST, [], self.tts_text))
                                 elif output.get("type") == "sentence-end":
-                                    logger.bind(tag=TAG).info(f"句子语音生成成功： {self.tts_text}")
+                                    logger.bind(tag=TAG).info(f"Sentence audio generated: {self.tts_text}")
                             elif event == "task-finished":
-                                logger.bind(tag=TAG).debug("TTS任务完成~")
+                                logger.bind(tag=TAG).debug("TTS task completed~")
                                 self.activate_session = False
                                 self._process_before_stop_play_files()
                             elif event == "task-failed":
                                 error_code = header.get("error_code", "unknown")
-                                error_message = header.get("error_message", "未知错误")
+                                error_message = header.get("error_message", "unknown error")
                                 logger.bind(tag=TAG).error(
-                                    f"TTS任务失败: {error_code} - {error_message}"
+                                    f"TTS task failed: {error_code} - {error_message}"
                                 )
                                 break
                         except json.JSONDecodeError:
-                            logger.bind(tag=TAG).warning("收到无效的JSON消息")
+                            logger.bind(tag=TAG).warning("Received invalid JSON message")
                     elif isinstance(msg, (bytes, bytearray)):
                         self.opus_encoder.encode_pcm_to_opus_stream(
                             msg, False, callback=self.handle_opus
                         )
                 except websockets.ConnectionClosed:
-                    logger.bind(tag=TAG).warning("WebSocket连接已关闭")
+                    logger.bind(tag=TAG).warning("WebSocket connection closed")
                     break
                 except Exception as e:
                     logger.bind(tag=TAG).error(
-                        f"处理TTS响应时出错: {e}\n{traceback.format_exc()}"
+                        f"Error handling TTS response: {e}\n{traceback.format_exc()}"
                     )
                     break
 
@@ -481,12 +481,12 @@ class TTSProvider(TTSProviderBase):
                             header = data.get("header", {})
                             if header.get("event") == "task-started":
                                 task_started = True
-                                logger.bind(tag=TAG).debug("TTS任务已启动")
+                                logger.bind(tag=TAG).debug("TTS task started")
                             elif header.get("event") == "task-failed":
                                 error_code = header.get("error_code", "unknown")
-                                error_message = header.get("error_message", "未知错误")
+                                error_message = header.get("error_message", "unknown error")
                                 raise Exception(
-                                    f"启动任务失败: {error_code} - {error_message}"
+                                    f"Failed to start task: {error_code} - {error_message}"
                                 )
 
                     # 发送文本
@@ -532,12 +532,12 @@ class TTSProvider(TTSProviderBase):
                             header = data.get("header", {})
                             if header.get("event") == "task-finished":
                                 task_finished = True
-                                logger.bind(tag=TAG).debug("TTS任务完成")
+                                logger.bind(tag=TAG).debug("TTS task completed")
                             elif header.get("event") == "task-failed":
                                 error_code = header.get("error_code", "unknown")
-                                error_message = header.get("error_message", "未知错误")
+                                error_message = header.get("error_message", "unknown error")
                                 raise Exception(
-                                    f"合成失败: {error_code} - {error_message}"
+                                    f"Synthesis failed: {error_code} - {error_message}"
                                 )
 
                 finally:
@@ -554,5 +554,5 @@ class TTSProvider(TTSProviderBase):
             return audio_data
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"生成音频数据失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Failed to generate audio data: {str(e)}")
             return []

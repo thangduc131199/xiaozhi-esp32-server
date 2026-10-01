@@ -64,5 +64,5 @@ class LLMProvider(LLMProviderBase):
 
     def response_with_functions(self, session_id, dialogue, functions=None):
         logger.bind(tag=TAG).error(
-            f"fastgpt暂未实现完整的工具调用（function call），建议使用其他意图识别"
+            f"fastgpt does not fully support function calls yet, use another intent recognition method"
         )

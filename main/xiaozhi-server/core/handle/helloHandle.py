@@ -7,29 +7,19 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.connection import ConnectionHandler
+from core.utils import i18n
 from core.utils.dialogue import Message
 from core.utils.util import audio_to_data
 from core.providers.tts.dto.dto import SentenceType
 from core.utils.wakeup_word import WakeupWordsConfig
 from core.handle.sendAudioHandle import sendAudioMessage, send_tts_message
-from core.utils.util import remove_punctuation_and_length, opus_datas_to_wav_bytes
+from core.utils.util import match_command, opus_datas_to_wav_bytes
 from core.providers.tools.device_mcp import MCPClient, send_mcp_initialize_message
 
 TAG = __name__
 
 WAKEUP_CONFIG = {
     "refresh_time": 10,
-    "responses": [
-        "我一直都在呢，您请说。",
-        "在的呢，请随时吩咐我。",
-        "来啦来啦，请告诉我吧。",
-        "您请说，我正听着。",
-        "请您讲话，我准备好了。",
-        "请您说出指令吧。",
-        "我认真听着呢，请讲。",
-        "请问您需要什么帮助？",
-        "我在这里，等候您的指令。",
-    ],
 }
 
 # 创建全局的唤醒词配置管理器
@@ -44,18 +34,18 @@ async def handleHelloMessage(conn: "ConnectionHandler", msg_json):
     audio_params = msg_json.get("audio_params")
     if audio_params:
         format = audio_params.get("format")
-        conn.logger.bind(tag=TAG).debug(f"客户端音频格式: {format}")
+        conn.logger.bind(tag=TAG).debug(f"Client audio format: {format}")
         conn.audio_format = format
         conn.welcome_msg["audio_params"] = audio_params
     features = msg_json.get("features")
     if features:
-        conn.logger.bind(tag=TAG).debug(f"客户端特性: {features}")
+        conn.logger.bind(tag=TAG).debug(f"Client features: {features}")
         conn.features = features
         if features.get("mcp"):
-            conn.logger.bind(tag=TAG).debug("客户端支持MCP")
+            conn.logger.bind(tag=TAG).debug("Client supports MCP")
             conn.mcp_client = MCPClient()
         if features.get("aec"):
-            conn.logger.bind(tag=TAG).debug("客户端启用了服务端AEC")
+            conn.logger.bind(tag=TAG).debug("Client enabled server-side AEC")
             conn.client_aec = True
 
     await conn.websocket.send(json.dumps(conn.welcome_msg))
@@ -82,8 +72,7 @@ async def checkWakeupWords(conn: "ConnectionHandler", text):
     if not enable_wakeup_words_response_cache:
         return False
 
-    _, filtered_text = remove_punctuation_and_length(text)
-    if filtered_text not in conn.config.get("wakeup_words"):
+    if not match_command(text, conn.config.get("wakeup_words")):
         return False
 
     conn.just_woken_up = True
@@ -99,9 +88,9 @@ async def checkWakeupWords(conn: "ConnectionHandler", text):
     if not response or not response.get("file_path"):
         response = {
             "voice": "default",
-            "file_path": "config/assets/wakeup_words_short.wav",
+            "file_path": i18n.asset_path(conn.config, "wakeup_words_short.wav"),
             "time": 0,
-            "text": "我在这里哦！",
+            "text": i18n.t(conn.config, "wakeup_default"),
         }
 
     # 获取音频数据
@@ -112,7 +101,7 @@ async def checkWakeupWords(conn: "ConnectionHandler", text):
     # 将唤醒词回复视为新会话，生成新的 sentence_id，确保流控器重置
     conn.sentence_id = str(uuid.uuid4().hex)
 
-    conn.logger.bind(tag=TAG).info(f"播放唤醒词回复: {response.get('text')}")
+    conn.logger.bind(tag=TAG).info(f"Playing wake-word reply: {response.get('text')}")
     await sendAudioMessage(conn, SentenceType.FIRST, opus_packets, response.get("text"))
     await sendAudioMessage(conn, SentenceType.LAST, [], None)
 
@@ -136,7 +125,7 @@ async def wakeupWordsResponse(conn: "ConnectionHandler"):
             return
 
         # 从预定义回复列表中随机选择一个回复
-        result = random.choice(WAKEUP_CONFIG["responses"])
+        result = random.choice(i18n.t(conn.config, "wakeup_responses"))
         if not result or len(result) == 0:
             return
 

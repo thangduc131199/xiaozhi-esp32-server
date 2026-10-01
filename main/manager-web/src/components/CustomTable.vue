@@ -20,7 +20,7 @@
           v-if="showSelection"
           width="55"
           align="center"
-          label="选择"
+          :label="$t('ui.select')"
         >
           <template slot-scope="scope">
             <slot
@@ -125,7 +125,9 @@ export default {
     },
     operationsLabel: {
       type: String,
-      default: '操作'
+      default() {
+        return this.$t('common.action')
+      }
     },
     operationsWidth: {
       type: [String, Number],

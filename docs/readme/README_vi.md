@@ -161,45 +161,34 @@ Khuyến nghị người dùng ưu tiên lựa chọn nhà cung cấp dịch v�
 
 ## Tài liệu triển khai
 
+> 🇻🇳 **Bản Việt hoá:** tiếng Việt là ngôn ngữ mặc định và không phụ thuộc máy chủ ở Trung Quốc. Hướng dẫn cài đặt đầy đủ, từng bước, nằm ở [Triển khai cho tiếng Việt tại Việt Nam](../trien-khai-viet-nam.md).
+>
+> ⚠️ Image `ghcr.io/xinnan-tech/...` và script `docker-setup.sh` cài **bản gốc (upstream)**, không có phần Việt hoá. Muốn dùng bản này, hãy tự build image theo hướng dẫn ở trên.
+
 ![Banners](../images/banner2.png)
 
 Dự án này cung cấp hai phương pháp triển khai, vui lòng chọn theo nhu cầu cụ thể của bạn:
 
 #### 🚀 Lựa chọn phương pháp triển khai
-| Phương pháp triển khai | Đặc điểm | Tình huống áp dụng | Tài liệu triển khai | Yêu cầu cấu hình | Video hướng dẫn |
-|---------|------|---------|---------|---------|---------|
-| **Cài đặt tối giản** | Đối thoại thông minh, quản lý đơn tác nhân | Môi trường cấu hình thấp, dữ liệu lưu trong tệp cấu hình, không cần cơ sở dữ liệu | [①Phiên bản Docker](../Deployment.md#%E6%96%B9%E5%BC%8F%E4%B8%80docker%E5%8F%AA%E8%BF%90%E8%A1%8Cserver) / [②Triển khai mã nguồn](../Deployment.md#%E6%96%B9%E5%BC%8F%E4%BA%8C%E6%9C%AC%E5%9C%B0%E6%BA%90%E7%A0%81%E5%8F%AA%E8%BF%90%E8%A1%8Cserver)| 2 nhân 4GB nếu dùng `FunASR`, 2 nhân 2GB nếu toàn API | - |
-| **Cài đặt toàn bộ module** | Đối thoại thông minh, quản lý đa người dùng, quản lý đa tác nhân, bảng điều khiển thông minh | Trải nghiệm đầy đủ tính năng, dữ liệu lưu trong cơ sở dữ liệu |[①Phiên bản Docker](../Deployment_all.md#%E6%96%B9%E5%BC%8F%E4%B8%80docker%E8%BF%90%E8%A1%8C%E5%85%A8%E6%A8%A1%E5%9D%97) / [②Triển khai mã nguồn](../Deployment_all.md#%E6%96%B9%E5%BC%8F%E4%BA%8C%E6%9C%AC%E5%9C%B0%E6%BA%90%E7%A0%81%E8%BF%90%E8%A1%8C%E5%85%A8%E6%A8%A1%E5%9D%97) / [③Hướng dẫn tự động cập nhật triển khai mã nguồn](../dev-ops-integration.md) | 4 nhân 8GB nếu dùng `FunASR`, 2 nhân 4GB nếu toàn API| [Video hướng dẫn khởi động mã nguồn cục bộ](https://www.bilibili.com/video/BV1wBJhz4Ewe) |
+| Phương pháp triển khai | Đặc điểm | Tình huống áp dụng | Tài liệu triển khai | Yêu cầu cấu hình |
+|---------|------|---------|---------|---------|
+| **Cài đặt tối giản** | Đối thoại thông minh, quản lý đơn tác nhân | Máy cấu hình thấp, dữ liệu lưu trong tệp cấu hình, không cần cơ sở dữ liệu | [①Docker](../trien-khai-viet-nam.md#4-chỉ-chạy-xiaozhi-server-không-có-trang-quản-trị) / [②Mã nguồn](../trien-khai-viet-nam.md#5-chạy-từ-mã-nguồn-không-dùng-docker) | 2 nhân 2GB (ASR/LLM/TTS qua API) |
+| **Cài đặt toàn bộ module** | Đối thoại thông minh, quản lý đa người dùng, đa tác nhân, trang quản trị | Trải nghiệm đầy đủ tính năng, dữ liệu lưu trong cơ sở dữ liệu | [①Docker](../trien-khai-viet-nam.md#3-cài-đặt-bản-full-có-trang-quản-trị) / [②Mã nguồn](../trien-khai-viet-nam.md#5-chạy-từ-mã-nguồn-không-dùng-docker) | 2 nhân 4GB (ASR/LLM/TTS qua API) |
 
-Câu hỏi thường gặp và hướng dẫn liên quan, vui lòng tham khảo [liên kết này](../FAQ.md)
+> Nếu bật ASR cục bộ `FunASR` (không hỗ trợ tiếng Việt), cần thêm khoảng 2–4GB RAM.
 
-> 💡 Gợi ý: Dưới đây là nền tảng thử nghiệm được triển khai theo mã mới nhất, có thể flash để thử nghiệm nếu cần, đồng thời là 6, dữ liệu sẽ được xóa mỗi ngày,
-
-```
-Địa chỉ bảng điều khiển thông minh: https://2662r3426b.vicp.fun
-Bảng điều khiển thông minh (phiên bản h5): https://2662r3426b.vicp.fun/h5/index.html
-
-Công cụ kiểm tra dịch vụ: https://2662r3426b.vicp.fun/test/
-Địa chỉ giao diện OTA: https://2662r3426b.vicp.fun/xiaozhi/ota/
-Địa chỉ giao diện Websocket: wss://2662r3426b.vicp.fun/xiaozhi/v1/
-```
+Tài liệu gốc chi tiết (tiếng Trung) để tham khảo: [Deployment.md](../Deployment.md) (tối giản), [Deployment_all.md](../Deployment_all.md) (toàn bộ module), [dev-ops-integration.md](../dev-ops-integration.md) (tự động cập nhật). Câu hỏi thường gặp xem tại [FAQ.md](../FAQ.md).
 
 #### 🚩 Mô tả và khuyến nghị cấu hình
 > [!Note]
-> Dự án này cung cấp hai phương án cấu hình:
->
-> 1. Cấu hình `Miễn phí hoàn toàn cho người mới`: Phù hợp với sử dụng gia đình cá nhân, tất cả các thành phần đều sử dụng phương án miễn phí, không cần thanh toán thêm.
->
-> 2. `Cấu hình streaming`: Phù hợp với demo, đào tạo, hơn 2 đồng thời, v.v., sử dụng công nghệ xử lý streaming, tốc độ phản hồi nhanh hơn, trải nghiệm tốt hơn.
->
-> Từ phiên bản `0.5.2`, dự án hỗ trợ cấu hình streaming, so với phiên bản đầu, tốc độ phản hồi cải thiện khoảng `2.5 giây`, cải thiện đáng kể trải nghiệm người dùng.
+> Bản Việt hoá có sẵn cấu hình mặc định dùng các dịch vụ có gói miễn phí và hỗ trợ tiếng Việt tốt. Nếu cần độ trễ thấp hơn hoặc giọng tự nhiên hơn, có thể chuyển sang các dịch vụ streaming trả phí ở cột bên phải.
 
-| Tên module | Cài đặt miễn phí cho người mới | Cấu hình streaming |
+| Tên module | Mặc định (miễn phí / gói free) | Tuỳ chọn chất lượng cao |
 |:---:|:---:|:---:|
-| ASR(Nhận dạng giọng nói) | FunASR(Local) | 👍XunfeiStreamASR(Xunfei Streaming) |
-| LLM(Mô hình lớn) | glm-4-flash(Zhipu) | 👍qwen-flash(Alibaba Bailian) |
-| VLLM(Mô hình lớn thị giác) | glm-4v-flash(Zhipu) | 👍qwen3.5-flash(Alibaba Bailian) |
-| TTS(Tổng hợp giọng nói) | EdgeTTS(Microsoft) | 👍HuoshanDoubleStreamTTS(Volcano Streaming) |
+| ASR(Nhận dạng giọng nói) | 👍GroqASR (`whisper-large-v3-turbo`) | ElevenLabsStreamASR (realtime) |
+| LLM(Mô hình lớn) | 👍GeminiOpenAILLM (`gemini-2.5-flash`) | Bất kỳ LLM tương thích OpenAI |
+| VLLM(Mô hình lớn thị giác) | 👍GeminiVLLM (`gemini-2.5-flash`) | - |
+| TTS(Tổng hợp giọng nói) | 👍EdgeTTS (`vi-VN-HoaiMyNeural`) | ElevenLabsStreamTTS / MinimaxTTSHTTPStream (`api.minimax.io`) |
 | Intent(Nhận dạng ý định) | function_call(Gọi hàm) | function_call(Gọi hàm) |
 | Memory(Chức năng bộ nhớ) | mem_local_short(Bộ nhớ ngắn hạn cục bộ) | mem_local_short(Bộ nhớ ngắn hạn cục bộ) |
 

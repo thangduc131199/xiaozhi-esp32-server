@@ -53,7 +53,7 @@ class ASRProviderBase(ABC):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理ASR文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"Failed to process ASR text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
                 )
                 continue
 
@@ -114,13 +114,13 @@ class ASRProviderBase(ABC):
 
             # 记录识别结果 - 检查是否为异常
             if isinstance(asr_result, Exception):
-                logger.bind(tag=TAG).error(f"ASR识别失败: {asr_result}")
+                logger.bind(tag=TAG).error(f"ASR recognition failed: {asr_result}")
                 raw_text = ""
             else:
                 raw_text, _ = asr_result
 
             if isinstance(voiceprint_result, Exception):
-                logger.bind(tag=TAG).error(f"声纹识别失败: {voiceprint_result}")
+                logger.bind(tag=TAG).error(f"Voiceprint recognition failed: {voiceprint_result}")
                 speaker_name = ""
             else:
                 speaker_name = voiceprint_result
@@ -133,13 +133,13 @@ class ASRProviderBase(ABC):
 
                 # 记录识别结果
                 if raw_text.get("language"):
-                    logger.bind(tag=TAG).info(f"识别语言: {raw_text['language']}")
+                    logger.bind(tag=TAG).info(f"Recognized language: {raw_text['language']}")
                 if raw_text.get("emotion"):
-                    logger.bind(tag=TAG).info(f"识别情绪: {raw_text['emotion']}")
+                    logger.bind(tag=TAG).info(f"Recognized emotion: {raw_text['emotion']}")
                 if raw_text.get("content"):
-                    logger.bind(tag=TAG).info(f"识别文本: {raw_text['content']}")
+                    logger.bind(tag=TAG).info(f"Recognized text: {raw_text['content']}")
                 if speaker_name:
-                    logger.bind(tag=TAG).info(f"识别说话人: {speaker_name}")
+                    logger.bind(tag=TAG).info(f"Recognized speaker: {speaker_name}")
 
                 # 转换为 JSON 字符串用于下游
                 enhanced_text = json.dumps(raw_text, ensure_ascii=False)
@@ -147,9 +147,9 @@ class ASRProviderBase(ABC):
             else:
                 # 其他 ASR 返回的纯文本
                 if raw_text:
-                    logger.bind(tag=TAG).info(f"识别文本: {raw_text}")
+                    logger.bind(tag=TAG).info(f"Recognized text: {raw_text}")
                 if speaker_name:
-                    logger.bind(tag=TAG).info(f"识别说话人: {speaker_name}")
+                    logger.bind(tag=TAG).info(f"Recognized speaker: {speaker_name}")
 
                 # 构建包含说话人信息的JSON字符串
                 enhanced_text = self._build_enhanced_text(raw_text, speaker_name)
@@ -157,7 +157,7 @@ class ASRProviderBase(ABC):
 
             # 性能监控
             total_time = time.monotonic() - total_start_time
-            logger.bind(tag=TAG).debug(f"总处理耗时: {total_time:.3f}s")
+            logger.bind(tag=TAG).debug(f"Total processing time: {total_time:.3f}s")
 
             # 检查文本长度
             text_len, _ = remove_punctuation_and_length(content_for_length_check)
@@ -169,10 +169,10 @@ class ASRProviderBase(ABC):
                 # 使用自定义模块进行上报
                 await startToChat(conn, enhanced_text)
         except Exception as e:
-            logger.bind(tag=TAG).error(f"处理语音停止失败: {e}")
+            logger.bind(tag=TAG).error(f"Failed to handle voice stop: {e}")
             import traceback
 
-            logger.bind(tag=TAG).debug(f"异常详情: {traceback.format_exc()}")
+            logger.bind(tag=TAG).debug(f"Exception details: {traceback.format_exc()}")
 
     def _build_enhanced_text(self, text: str, speaker_name: Optional[str]) -> str:
         """构建包含说话人信息的文本（仅用于纯文本ASR）"""
@@ -186,7 +186,7 @@ class ASRProviderBase(ABC):
     def _pcm_to_wav(self, pcm_data: bytes) -> bytes:
         """将PCM数据转换为WAV格式"""
         if len(pcm_data) == 0:
-            logger.bind(tag=TAG).warning("PCM数据为空，无法转换WAV")
+            logger.bind(tag=TAG).warning("PCM data is empty, cannot convert to WAV")
             return b""
 
         # 确保数据长度是偶数（16位音频）
@@ -207,7 +207,7 @@ class ASRProviderBase(ABC):
 
             return wav_data
         except Exception as e:
-            logger.bind(tag=TAG).error(f"WAV转换失败: {e}")
+            logger.bind(tag=TAG).error(f"WAV conversion failed: {e}")
             return b""
 
     def stop_ws_connection(self):
@@ -248,7 +248,7 @@ class ASRProviderBase(ABC):
                 wav_file.writeframes(pcm_bytes)
             return temp_path
         except Exception as e:
-            logger.bind(tag=TAG).error(f"临时音频文件生成失败: {e}")
+            logger.bind(tag=TAG).error(f"Failed to create temporary audio file: {e}")
             return None
 
     def save_audio_to_file(self, pcm_data: List[bytes], session_id: str) -> str:
@@ -275,7 +275,7 @@ class ASRProviderBase(ABC):
 
             free_space = shutil.disk_usage(self.output_dir).free
             if free_space < len(combined_pcm_data) * 2:
-                raise OSError("磁盘空间不足")
+                raise OSError("Insufficient disk space")
 
             if self.requires_file() and self.prefers_temp_file():
                 temp_path = self.build_temp_file(combined_pcm_data)
@@ -300,10 +300,10 @@ class ASRProviderBase(ABC):
             )
             return text, file_path
         except OSError as e:
-            logger.bind(tag=TAG).error(f"文件操作错误: {e}")
+            logger.bind(tag=TAG).error(f"File operation error: {e}")
             return None, None
         except Exception as e:
-            logger.bind(tag=TAG).error(f"语音识别失败: {e}")
+            logger.bind(tag=TAG).error(f"Speech recognition failed: {e}")
             return None, None
         finally:
             try:
@@ -317,7 +317,7 @@ class ASRProviderBase(ABC):
                 ):
                     os.remove(file_path)
             except Exception as e:
-                logger.bind(tag=TAG).error(f"文件清理失败: {e}")
+                logger.bind(tag=TAG).error(f"File cleanup failed: {e}")
 
     @abstractmethod
     async def speech_to_text(

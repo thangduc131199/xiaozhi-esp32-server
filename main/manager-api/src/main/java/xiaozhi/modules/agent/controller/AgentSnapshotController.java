@@ -1,5 +1,6 @@
 package xiaozhi.modules.agent.controller;
 
+import xiaozhi.common.exception.ErrorCode;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -73,7 +74,7 @@ public class AgentSnapshotController {
     private void checkPermission(String agentId) {
         UserDetail user = SecurityUser.getUser();
         if (user == null || !agentService.checkAgentPermission(agentId, user.getId())) {
-            throw new RenException("没有权限访问该智能体快照");
+            throw new RenException(ErrorCode.AGENT_SNAPSHOT_NO_PERMISSION);
         }
     }
 }

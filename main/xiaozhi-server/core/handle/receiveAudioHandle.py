@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.connection import ConnectionHandler
+from core.utils import i18n
 from core.utils.util import audio_to_data
 from core.handle.abortHandle import handleAbortMessage
 from core.handle.intentHandler import handle_user_intent
@@ -52,7 +53,7 @@ async def startToChat(conn: "ConnectionHandler", text):
             if "speaker" in data and "content" in data:
                 speaker_name = data["speaker"]
                 actual_content = data["content"]
-                conn.logger.bind(tag=TAG).info(f"解析到说话人信息: {speaker_name}")
+                conn.logger.bind(tag=TAG).info(f"Parsed speaker info: {speaker_name}")
 
                 # 仅在该说话人首次出现时保留 {"speaker":...} JSON，让模型自然称呼一次；
                 # 后续轮降为纯文本，避免每轮重复出现名字诱导模型反复称呼
@@ -121,21 +122,21 @@ async def no_voice_close_connect(conn: "ConnectionHandler", have_voice):
             conn.client_abort = False
             end_prompt = conn.config.get("end_prompt", {})
             if end_prompt and end_prompt.get("enable", True) is False:
-                conn.logger.bind(tag=TAG).info("结束对话，无需发送结束提示语")
+                conn.logger.bind(tag=TAG).info("Ending conversation, no closing prompt needed")
                 await conn.close()
                 return
             prompt = end_prompt.get("prompt")
             if not prompt:
-                prompt = "请你以```时间过得真快```未来头，用富有感情、依依不舍的话来结束这场对话吧。！"
+                prompt = i18n.t(conn.config, "end_prompt")
             await startToChat(conn, prompt)
 
 
 async def max_out_size(conn: "ConnectionHandler"):
     # 播放超出最大输出字数的提示
     conn.client_abort = False
-    text = "不好意思，我现在有点事情要忙，明天这个时候我们再聊，约好了哦！明天不见不散，拜拜！"
+    text = i18n.t(conn.config, "max_output_size")
     await send_stt_message(conn, text)
-    file_path = "config/assets/max_output_size.wav"
+    file_path = i18n.asset_path(conn.config, "max_output_size.wav")
     opus_packets = await audio_to_data(file_path)
     conn.tts.tts_audio_queue.put((SentenceType.LAST, opus_packets, text))
     conn.close_after_chat = True
@@ -145,16 +146,16 @@ async def check_bind_device(conn: "ConnectionHandler"):
     if conn.bind_code:
         # 确保bind_code是6位数字
         if len(conn.bind_code) != 6:
-            conn.logger.bind(tag=TAG).error(f"无效的绑定码格式: {conn.bind_code}")
-            text = "绑定码格式错误，请检查配置。"
+            conn.logger.bind(tag=TAG).error(f"Invalid bind code format: {conn.bind_code}")
+            text = i18n.t(conn.config, "bind_code_invalid")
             await send_stt_message(conn, text)
             return
 
-        text = f"请登录控制面板，输入{conn.bind_code}，绑定设备。"
+        text = i18n.t(conn.config, "bind_code_prompt", code=conn.bind_code)
         await send_stt_message(conn, text)
 
         # 播放提示音
-        music_path = "config/assets/bind_code.wav"
+        music_path = i18n.asset_path(conn.config, "bind_code.wav")
         opus_packets = await audio_to_data(music_path)
         conn.tts.tts_audio_queue.put((SentenceType.FIRST, opus_packets, text))
 
@@ -162,18 +163,18 @@ async def check_bind_device(conn: "ConnectionHandler"):
         for i in range(6):  # 确保只播放6位数字
             try:
                 digit = conn.bind_code[i]
-                num_path = f"config/assets/bind_code/{digit}.wav"
+                num_path = i18n.asset_path(conn.config, f"bind_code/{digit}.wav")
                 num_packets = await audio_to_data(num_path)
                 conn.tts.tts_audio_queue.put((SentenceType.MIDDLE, num_packets, None))
             except Exception as e:
-                conn.logger.bind(tag=TAG).error(f"播放数字音频失败: {e}")
+                conn.logger.bind(tag=TAG).error(f"Failed to play digit audio: {e}")
                 continue
         conn.tts.tts_audio_queue.put((SentenceType.LAST, [], None))
     else:
         # 播放未绑定提示
         conn.client_abort = False
-        text = f"没有找到该设备的版本信息，请正确配置 OTA地址，然后重新编译固件。"
+        text = i18n.t(conn.config, "bind_not_found")
         await send_stt_message(conn, text)
-        music_path = "config/assets/bind_not_found.wav"
+        music_path = i18n.asset_path(conn.config, "bind_not_found.wav")
         opus_packets = await audio_to_data(music_path)
         conn.tts.tts_audio_queue.put((SentenceType.LAST, opus_packets, text))

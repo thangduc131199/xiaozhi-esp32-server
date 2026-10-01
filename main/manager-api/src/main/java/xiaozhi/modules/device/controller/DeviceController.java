@@ -1,5 +1,6 @@
 package xiaozhi.modules.device.controller;
 
+import xiaozhi.common.utils.MessageUtils;
 import java.util.List;
 import java.util.Map;
 
@@ -99,7 +100,7 @@ public class DeviceController {
         try {
             return new Result<String>().ok(deviceService.getDeviceOnlineData(agentId));
         } catch (Exception e) {
-            return new Result<String>().error("转发请求失败: " + e.getMessage());
+            return new Result<String>().error(ErrorCode.DEVICE_FORWARD_FAILED, MessageUtils.getMessage(ErrorCode.DEVICE_FORWARD_FAILED, e.getMessage()));
         }
     }
 
@@ -118,11 +119,11 @@ public class DeviceController {
     public Result<Void> updateDeviceInfo(@PathVariable String id, @Valid @RequestBody DeviceUpdateDTO deviceUpdateDTO) {
         DeviceEntity entity = deviceService.selectById(id);
         if (entity == null) {
-            return new Result<Void>().error("设备不存在");
+            return new Result<Void>().error(ErrorCode.DEVICE_NOT_FOUND);
         }
         UserDetail user = SecurityUser.getUser();
         if (!entity.getUserId().equals(user.getId())) {
-            return new Result<Void>().error("设备不存在");
+            return new Result<Void>().error(ErrorCode.DEVICE_NOT_FOUND);
         }
         BeanUtils.copyProperties(deviceUpdateDTO, entity);
         if (!deviceService.updateById(entity)) {
@@ -183,7 +184,7 @@ public class DeviceController {
             @RequestParam(required = false, defaultValue = "false") boolean answer) {
         Map<String, Object> result = deviceAddressBookService.callByNickname(callerMac, nickname, answer);
         if (result == null) {
-            return new Result<Map<String, Object>>().error("未找到对应设备");
+            return new Result<Map<String, Object>>().error(ErrorCode.DEVICE_NOT_FOUND);
         }
         return new Result<Map<String, Object>>().ok(result);
     }
@@ -195,7 +196,7 @@ public class DeviceController {
         UserDetail user = SecurityUser.getUser();
         DeviceEntity callerDevice = deviceService.getDeviceByMacAddress(dto.getMacAddress());
         if (callerDevice == null || !callerDevice.getUserId().equals(user.getId())) {
-            return new Result<Void>().error("无权限操作该设备");
+            return new Result<Void>().error(ErrorCode.DEVICE_NO_PERMISSION);
         }
         deviceAddressBookService.saveOrUpdate(dto.getMacAddress(), dto.getTargetMac(), dto.getAlias(), null);
         return new Result<Void>();
@@ -208,7 +209,7 @@ public class DeviceController {
         UserDetail user = SecurityUser.getUser();
         DeviceEntity callerDevice = deviceService.getDeviceByMacAddress(dto.getMacAddress());
         if (callerDevice == null || !callerDevice.getUserId().equals(user.getId())) {
-            return new Result<Void>().error("无权限操作该设备");
+            return new Result<Void>().error(ErrorCode.DEVICE_NO_PERMISSION);
         }
         deviceAddressBookService.saveOrUpdate(dto.getMacAddress(), dto.getTargetMac(), null, dto.getHasPermission());
         return new Result<Void>();

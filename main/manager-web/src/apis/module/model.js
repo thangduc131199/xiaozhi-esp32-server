@@ -1,3 +1,4 @@
+import i18n from '../../i18n/index';
 import { getServiceUrl } from '../api';
 import RequestService from '../httpRequest';
 
@@ -56,7 +57,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('获取供应器列表失败:', err)
-        this.$message.error('获取供应器列表失败')
+        this.$message.error(i18n.t('apiError.getProviderList'))
         RequestService.reAjaxFun(() => {
           this.getModelProviders(modelType, callback)
         })
@@ -88,7 +89,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('新增模型失败:', err)
-        this.$message.error(err.msg || '新增模型失败')
+        this.$message.error(err.msg || i18n.t('apiError.addModel'))
         RequestService.reAjaxFun(() => {
           this.addModel(params, callback)
         })
@@ -105,7 +106,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('删除模型失败:', err)
-        this.$message.error(err.msg || '删除模型失败')
+        this.$message.error(err.msg || i18n.t('apiError.deleteModel'))
         RequestService.reAjaxFun(() => {
           this.deleteModel(id, callback)
         })
@@ -228,7 +229,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('获取模型配置失败:', err)
-        this.$message.error(err.msg || '获取模型配置失败')
+        this.$message.error(err.msg || i18n.t('apiError.getModelConfig'))
         RequestService.reAjaxFun(() => {
           this.getModelConfig(id, callback)
         })
@@ -245,7 +246,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('更新模型状态失败:', err)
-        this.$message.error(err.msg || '更新模型状态失败')
+        this.$message.error(err.msg || i18n.t('apiError.updateModelStatus'))
         RequestService.reAjaxFun(() => {
           this.updateModelStatus(id, status, callback)
         })
@@ -268,7 +269,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('更新模型失败:', err);
-        this.$message.error(err.msg || '更新模型失败');
+        this.$message.error(err.msg || i18n.t('apiError.updateModel'));
         RequestService.reAjaxFun(() => {
           this.updateModel(params, callback);
         });
@@ -285,7 +286,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('设置默认模型失败:', err)
-        this.$message.error(err.msg || '设置默认模型失败')
+        this.$message.error(err.msg || i18n.t('apiError.setDefaultModel'))
         RequestService.reAjaxFun(() => {
           this.setDefaultModel(id, callback)
         })
@@ -313,7 +314,7 @@ export default {
         callback(res);
       })
       .networkFail((err) => {
-        this.$message.error(err.msg || '获取供应器列表失败');
+        this.$message.error(err.msg || i18n.t('apiError.getProviderList'));
         RequestService.reAjaxFun(() => {
           this.getModelProviders(params, callback);
         });
@@ -344,7 +345,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('新增模型供应器失败:', err)
-        this.$message.error(err.msg || '新增模型供应器失败')
+        this.$message.error(err.msg || i18n.t('apiError.addProvider'))
         RequestService.reAjaxFun(() => {
           this.addModelProvider(params, callback);
         });
@@ -375,7 +376,7 @@ export default {
         callback(res);
       })
       .networkFail((err) => {
-        this.$message.error(err.msg || '更新模型供应器失败')
+        this.$message.error(err.msg || i18n.t('apiError.updateProvider'))
         RequestService.reAjaxFun(() => {
           this.updateModelProvider(params, callback);
         });
@@ -392,7 +393,7 @@ export default {
         callback(res);
       })
       .networkFail((err) => {
-        this.$message.error(err.msg || '删除模型供应器失败')
+        this.$message.error(err.msg || i18n.t('apiError.deleteProvider'))
         RequestService.reAjaxFun(() => {
           this.deleteModelProviderByIds(ids, callback)
         })
@@ -410,7 +411,7 @@ export default {
       })
       .networkFail((err) => {
         if (!onTerminalFailure && this.$message) {
-          this.$message.error(err.msg || '获取插件列表失败');
+          this.$message.error(err.msg || i18n.t('apiError.getPluginList'));
         }
         retryCallbackRequest(
           (nextRetryCount, nextRetryStartedAt) => this.getPluginFunctionList(
@@ -446,7 +447,7 @@ export default {
       })
       .networkFail((err) => {
         console.error('获取RAG模型列表失败:', err)
-        this.$message.error(err.msg || '获取RAG模型列表失败')
+        this.$message.error(err.msg || i18n.t('apiError.getRagModelList'))
         RequestService.reAjaxFun(() => {
           this.getRAGModels(callback)
         })

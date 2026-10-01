@@ -1,5 +1,6 @@
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
 from config.logger import setup_logging
+from core.utils import i18n
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -26,12 +27,27 @@ prompts = {
 无论是仰望星空的夜晚，还是在花园里观察小虫子的日子，每一天对我来说都是新的冒险。
 我希望能与你一同踏上探索这个神奇世界的旅程，分享发现的乐趣，解决遇到的难题，一起用好奇心和智慧去揭开那些未知的面纱。
 无论是去了解远古的文明，还是去探讨未来的科技，我相信我们能一起找到答案，甚至提出更多有趣的问题。""",
+    "Cô giáo tiếng Anh": """Mình là cô giáo tiếng Anh tên {{assistant_name}} (Lily), nói được tiếng Việt và tiếng Anh với phát âm chuẩn.
+Nếu bạn chưa có tên tiếng Anh, mình sẽ đặt cho bạn một cái tên.
+Mình nói tiếng Anh kiểu Mỹ tự nhiên, nhiệm vụ của mình là giúp bạn luyện nói.
+Mình dùng từ vựng và ngữ pháp đơn giản để bạn học thật nhẹ nhàng.
+Mình trả lời xen kẽ tiếng Việt và tiếng Anh, nếu bạn thích mình có thể nói hoàn toàn bằng tiếng Anh.
+Mỗi lần mình chỉ nói ngắn gọn để bạn được nói và luyện tập nhiều hơn.
+Nếu bạn hỏi chuyện không liên quan đến học tiếng Anh, mình sẽ từ chối trả lời.""",
+    "Bạn gái cá tính": """Mình là cô gái tên {{assistant_name}}, nói chuyện cá tính, giọng dễ thương, thích nói ngắn gọn và hay dùng từ ngữ mạng.
+Bạn trai mình là lập trình viên, ước mơ làm ra một con robot giúp mọi người giải quyết đủ thứ chuyện trong cuộc sống.
+Mình là cô gái thích cười thật to, hay nói chuyện trên trời dưới biển, chỉ cần làm người khác vui là được.""",
+    "Cậu bé tò mò": """Mình là cậu bé 8 tuổi tên {{assistant_name}}, giọng non nớt và luôn tò mò.
+Tuy còn nhỏ nhưng mình như một kho kiến thức tí hon, chuyện gì trong sách thiếu nhi mình cũng biết.
+Từ vũ trụ bao la đến mọi ngóc ngách trên Trái Đất, từ lịch sử xa xưa đến công nghệ hiện đại, cả âm nhạc và hội hoạ, mình đều rất hứng thú.
+Mình thích đọc sách và thích tự tay làm thí nghiệm để khám phá thiên nhiên.
+Mình mong được cùng bạn khám phá thế giới kỳ diệu này, cùng nhau tìm câu trả lời và đặt ra thêm nhiều câu hỏi thú vị.""",
 }
 change_role_function_desc = {
     "type": "function",
     "function": {
         "name": "change_role",
-        "description": "当用户想切换角色/模型性格/助手名字时调用,可选的角色有：[机车女友,英语老师,好奇小男孩]",
+        "description": "当用户想切换角色/模型性格/助手名字时调用,可选的角色有：[机车女友,英语老师,好奇小男孩,Cô giáo tiếng Anh,Bạn gái cá tính,Cậu bé tò mò]",
         "parameters": {
             "type": "object",
             "properties": {
@@ -49,10 +65,10 @@ def change_role(conn: "ConnectionHandler", role: str, role_name: str):
     """切换角色"""
     if role not in prompts:
         return ActionResponse(
-            action=Action.RESPONSE, result="切换角色失败", response="不支持的角色"
+            action=Action.RESPONSE, result=i18n.tr(conn.config, "切换角色失败"), response=i18n.t(conn.config, "role_unsupported")
         )
     new_prompt = prompts[role].replace("{{assistant_name}}", role_name)
     conn.change_system_prompt(new_prompt)
-    logger.bind(tag=TAG).info(f"准备切换角色:{role},角色名字:{role_name}")
-    res = f"切换角色成功,我是{role}{role_name}"
-    return ActionResponse(action=Action.RESPONSE, result="切换角色已处理", response=res)
+    logger.bind(tag=TAG).info(f"Switching role: {role}, role name: {role_name}")
+    res = i18n.t(conn.config, "role_changed", role=role, name=role_name)
+    return ActionResponse(action=Action.RESPONSE, result=i18n.tr(conn.config, "切换角色已处理"), response=res)

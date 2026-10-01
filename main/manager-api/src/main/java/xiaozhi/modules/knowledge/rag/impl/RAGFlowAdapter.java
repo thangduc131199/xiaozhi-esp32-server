@@ -130,7 +130,7 @@ public class RAGFlowAdapter extends KnowledgeBaseAdapter {
             if (this.config != null) {
                 initialize(this.config);
             } else {
-                throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "适配器未初始化"); // 应该抛出 RuntimeException
+                throw new RenException(ErrorCode.RAG_CONFIG_NOT_FOUND, "adapter not initialized"); // 应该抛出 RuntimeException
             }
         }
         return this.client;

@@ -155,14 +155,18 @@ public class ConfigServiceImpl implements ConfigService {
             if (StringUtils.isNotBlank(agent.getTtsLanguage())) {
                 language = agent.getTtsLanguage();
             } else if (StringUtils.isNotBlank(timbre.getLanguages())) {
-                language = timbre.getLanguages().split("、")[0].trim();
+                language = timbre.getLanguages().split("[、；;,，]")[0].trim();
             }
         } else {
             VoiceCloneEntity voice_print = cloneVoiceService.selectById(agent.getTtsVoiceId());
             if (voice_print != null) {
                 voice = voice_print.getVoiceId();
                 // 优先使用用户选择的语言，如果没有则使用默认值
-                language = StringUtils.isNotBlank(agent.getTtsLanguage()) ? agent.getTtsLanguage() : "普通话";
+                String defaultLanguage = StringUtils.startsWithIgnoreCase(
+                        StringUtils.trimToEmpty(sysParamsService.getValue("default_language", true)), "zh")
+                                ? "普通话"
+                                : "Tiếng Việt";
+                language = StringUtils.isNotBlank(agent.getTtsLanguage()) ? agent.getTtsLanguage() : defaultLanguage;
             }
         }
         // 构建返回数据

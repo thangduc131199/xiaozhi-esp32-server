@@ -82,7 +82,7 @@ async def fetch_news_from_rss(rss_url):
 
         return news_items
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取RSS新闻失败: {e}")
+        logger.bind(tag=TAG).error(f"Failed to fetch RSS news: {e}")
         return []
 
 
@@ -112,7 +112,7 @@ async def fetch_news_detail(url):
             )
             return content[:2000]  # 限制长度
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取新闻详情失败: {e}")
+        logger.bind(tag=TAG).error(f"Failed to fetch news details: {e}")
         return "无法获取详细内容"
 
 
@@ -177,7 +177,7 @@ async def get_news_from_chinanews(
                     Action.REQLLM, "抱歉，该新闻没有可用的链接获取详细内容。", None
                 )
 
-            logger.bind(tag=TAG).debug(f"获取新闻详情: {title}, URL={link}")
+            logger.bind(tag=TAG).debug(f"Fetching news details: {title}, URL={link}")
 
             # 获取新闻详情
             detail_content = await fetch_news_detail(link)
@@ -216,7 +216,7 @@ async def get_news_from_chinanews(
             rss_url = rss_config[mapped_category]
 
         logger.bind(tag=TAG).info(
-            f"获取新闻: 原始类别={category}, 映射类别={mapped_category}, URL={rss_url}"
+            f"Fetching news: raw category={category}, mapped category={mapped_category}, URL={rss_url}"
         )
 
         # 获取新闻列表
@@ -252,7 +252,7 @@ async def get_news_from_chinanews(
         return ActionResponse(Action.REQLLM, news_report, None)
 
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取新闻出错: {e}")
+        logger.bind(tag=TAG).error(f"Error fetching news: {e}")
         return ActionResponse(
             Action.REQLLM, "抱歉，获取新闻时发生错误，请稍后再试。", None
         )

@@ -1,11 +1,12 @@
 """设备端MCP工具执行器"""
 
+from core.utils import i18n
 from typing import Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.connection import ConnectionHandler
 from ..base import ToolType, ToolDefinition, ToolExecutor
-from plugins_func.register import Action, ActionResponse
+from plugins_func.register import Action, ActionResponse, tool_error_response
 from .mcp_handler import call_mcp_tool
 
 
@@ -22,13 +23,13 @@ class DeviceMCPExecutor(ToolExecutor):
         if not hasattr(conn, "mcp_client") or not conn.mcp_client:
             return ActionResponse(
                 action=Action.ERROR,
-                response="设备端MCP客户端未初始化",
+                response=i18n.tr(conn.config, "设备端MCP客户端未初始化"),
             )
 
         if not await conn.mcp_client.is_ready():
             return ActionResponse(
                 action=Action.ERROR,
-                response="设备端MCP客户端未准备就绪",
+                response=i18n.tr(conn.config, "设备端MCP客户端未准备就绪"),
             )
 
         try:
@@ -59,11 +60,8 @@ class DeviceMCPExecutor(ToolExecutor):
                 )
 
             return ActionResponse(action=Action.REQLLM, result=str(result))
-
-        except ValueError as e:
-            return ActionResponse(action=Action.NOTFOUND, response=str(e))
         except Exception as e:
-            return ActionResponse(action=Action.ERROR, response=str(e))
+            return tool_error_response(e)
 
     def get_tools(self) -> Dict[str, ToolDefinition]:
         """获取所有设备端MCP工具"""

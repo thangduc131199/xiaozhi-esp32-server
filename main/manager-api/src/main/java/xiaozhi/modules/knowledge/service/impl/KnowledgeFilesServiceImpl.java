@@ -405,7 +405,7 @@ public class KnowledgeFilesServiceImpl extends BaseServiceImpl<DocumentDao, Docu
         KnowledgeFilesDTO result = adapter.uploadDocument(uploadReq);
 
         if (result == null || StringUtils.isBlank(result.getDocumentId())) {
-            throw new RenException(ErrorCode.RAG_API_ERROR, "远程上传成功但未返回有效 DocumentID");
+            throw new RenException(ErrorCode.RAG_API_ERROR, "remote upload succeeded but returned no valid DocumentID");
         }
 
         // 2. 本地持久化 (通过 self 调用以激活 @Transactional 代理)
@@ -630,7 +630,7 @@ public class KnowledgeFilesServiceImpl extends BaseServiceImpl<DocumentDao, Docu
 
         // 验证适配器类型是否已注册
         if (!KnowledgeBaseAdapterFactory.isAdapterTypeRegistered(adapterType)) {
-            throw new RenException(ErrorCode.RAG_ADAPTER_TYPE_NOT_SUPPORTED, "适配器类型未注册: " + adapterType);
+            throw new RenException(ErrorCode.RAG_ADAPTER_TYPE_NOT_SUPPORTED, "adapter type not registered: " + adapterType);
         }
 
         return adapterType;
@@ -673,7 +673,7 @@ public class KnowledgeFilesServiceImpl extends BaseServiceImpl<DocumentDao, Docu
                 log.info("文档本地状态已更新为 RUNNING");
             } else {
                 log.error("文档解析失败，datasetId: {}, documentIds: {}", datasetId, documentIds);
-                throw new RenException(ErrorCode.RAG_API_ERROR, "文档解析失败");
+                throw new RenException(ErrorCode.RAG_API_ERROR, "document parsing failed");
             }
 
             return result;
@@ -721,7 +721,7 @@ public class KnowledgeFilesServiceImpl extends BaseServiceImpl<DocumentDao, Docu
     @Override
     public RetrievalDTO.ResultVO retrievalTest(RetrievalDTO.TestReq req) {
         if (CollectionUtils.isEmpty(req.getDatasetIds())) {
-            throw new RenException("未指定召回测试的知识库");
+            throw new RenException(ErrorCode.RETRIEVAL_KB_NOT_SPECIFIED);
         }
 
         log.info("=== 开始召回测试: req={} ===", req);

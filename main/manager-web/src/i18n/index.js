@@ -39,12 +39,15 @@ const getDefaultLanguage = () => {
   if (browserLang === 'pt-BR' || browserLang === 'pt') {
     return 'pt_BR';
   }
-  return 'en';
+  if (browserLang.indexOf('en') === 0) {
+    return 'en';
+  }
+  return 'vi';
 };
 
 const i18n = new VueI18n({
   locale: getDefaultLanguage(),
-  fallbackLocale: 'zh_CN',
+  fallbackLocale: 'vi',
   messages: {
     'zh_CN': { ...zhLocale, ...zhCN },
     'zh_TW': { ...twLocale, ...zhTW },

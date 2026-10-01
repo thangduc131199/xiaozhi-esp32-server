@@ -1,5 +1,6 @@
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
 from config.logger import setup_logging
+from core.utils import i18n
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -34,15 +35,15 @@ def handle_exit_intent(conn: "ConnectionHandler", say_goodbye: str | None = None
     # 处理退出意图
     try:
         if say_goodbye is None:
-            say_goodbye = "再见，祝您生活愉快！"
+            say_goodbye = i18n.t(conn.config, "goodbye")
         if not conn.close_after_chat:
             conn.close_after_chat = True
-        logger.bind(tag=TAG).info(f"退出意图已处理:{say_goodbye}")
+        logger.bind(tag=TAG).info(f"Exit intent handled: {say_goodbye}")
         return ActionResponse(
-            action=Action.RESPONSE, result="退出意图已处理", response=say_goodbye
+            action=Action.RESPONSE, result=i18n.tr(conn.config, "退出意图已处理"), response=say_goodbye
         )
     except Exception as e:
-        logger.bind(tag=TAG).error(f"处理退出意图错误: {e}")
+        logger.bind(tag=TAG).error(f"Error handling exit intent: {e}")
         return ActionResponse(
-            action=Action.NONE, result="退出意图处理失败", response=""
+            action=Action.NONE, result=i18n.tr(conn.config, "退出意图处理失败"), response=""
         )

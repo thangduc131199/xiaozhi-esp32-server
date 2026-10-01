@@ -67,7 +67,7 @@ class ServerMCPClient:
         await self._ready_evt.wait()
 
         self.logger.bind(tag=TAG).info(
-            f"服务端MCP客户端已连接，可用工具: {[name for name in self.name_mapping.values()]}"
+            f"Server MCP client connected, available tools: {[name for name in self.name_mapping.values()]}"
         )
 
     async def cleanup(self):
@@ -79,7 +79,7 @@ class ServerMCPClient:
         try:
             await asyncio.wait_for(self._worker_task, timeout=20)
         except (asyncio.TimeoutError, Exception) as e:
-            self.logger.bind(tag=TAG).error(f"服务端MCP客户端关闭错误: {e}")
+            self.logger.bind(tag=TAG).error(f"Server MCP client close error: {e}")
         finally:
             self._worker_task = None
 
@@ -129,7 +129,7 @@ class ServerMCPClient:
             RuntimeError: 客户端未初始化时抛出
         """
         if not self.session:
-            raise RuntimeError("服务端MCP客户端未初始化")
+            raise RuntimeError("Server MCP client not initialized")
 
         real_name = self.name_mapping.get(name, name)
         loop = self._worker_task.get_loop()
@@ -196,7 +196,7 @@ class ServerMCPClient:
                     # TODO 兼容旧版本
                     if "API_ACCESS_TOKEN" in self.config:
                         headers["Authorization"] = f"Bearer {self.config['API_ACCESS_TOKEN']}"
-                        self.logger.bind(tag=TAG).warning(f"你正在使用旧过时的配置 API_ACCESS_TOKEN ，请在.mcp_server_settings.json中将API_ACCESS_TOKEN直接设置在headers中，例如 'Authorization': 'Bearer API_ACCESS_TOKEN'")
+                        self.logger.bind(tag=TAG).warning(f"You are using the deprecated API_ACCESS_TOKEN config; set it directly in headers in .mcp_server_settings.json, e.g. 'Authorization': 'Bearer API_ACCESS_TOKEN'")
                    
                     # 根据transport类型选择不同的客户端，默认为SSE
                     transport_type = self.config.get("transport", "sse")
@@ -226,7 +226,7 @@ class ServerMCPClient:
                         read_stream, write_stream = sse_r, sse_w
 
                 else:
-                    raise ValueError("MCP客户端配置必须包含'command'或'url'")
+                    raise ValueError("MCP client config must contain 'command' or 'url'")
 
                 self.session = await stack.enter_async_context(
                     ClientSession(
@@ -256,6 +256,6 @@ class ServerMCPClient:
                 await self._shutdown_evt.wait()
 
             except Exception as e:
-                self.logger.bind(tag=TAG).error(f"服务端MCP客户端工作协程错误: {e}")
+                self.logger.bind(tag=TAG).error(f"Server MCP client worker coroutine error: {e}")
                 self._ready_evt.set()
                 raise

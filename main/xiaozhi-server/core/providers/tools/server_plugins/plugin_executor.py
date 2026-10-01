@@ -1,6 +1,7 @@
 """服务端插件工具执行器"""
 
 import asyncio
+from core.utils import i18n
 from typing import Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ class ServerPluginExecutor(ToolExecutor):
         func_item = all_function_registry.get(tool_name)
         if not func_item:
             return ActionResponse(
-                action=Action.NOTFOUND, response=f"插件函数 {tool_name} 不存在"
+                action=Action.NOTFOUND, response=i18n.tr(conn.config, "插件函数 {name} 不存在", name=tool_name)
             )
 
         try:

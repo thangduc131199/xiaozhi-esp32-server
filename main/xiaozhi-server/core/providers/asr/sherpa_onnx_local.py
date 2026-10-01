@@ -56,7 +56,7 @@ class ASRProvider(ASRProviderBase):
         try:
             for file_name, file_path in model_files.items():
                 if not os.path.isfile(file_path):
-                    logger.bind(tag=TAG).info(f"正在下载模型文件: {file_name}")
+                    logger.bind(tag=TAG).info(f"Downloading model file: {file_name}")
                     model_file_download(
                         model_id="pengzhendong/sherpa-onnx-sense-voice-zh-en-ja-ko-yue",
                         file_path=file_name,
@@ -64,13 +64,13 @@ class ASRProvider(ASRProviderBase):
                     )
 
                     if not os.path.isfile(file_path):
-                        raise FileNotFoundError(f"模型文件下载失败: {file_path}")
+                        raise FileNotFoundError(f"Model file download failed: {file_path}")
 
             self.model_path = model_files["model.int8.onnx"]
             self.tokens_path = model_files["tokens.txt"]
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"模型文件处理失败: {str(e)}")
+            logger.bind(tag=TAG).error(f"Model file processing failed: {str(e)}")
             raise
 
         with CaptureOutput():
@@ -140,11 +140,11 @@ class ASRProvider(ASRProviderBase):
             self.model.decode_stream(s)
             text = s.result.text
             logger.bind(tag=TAG).debug(
-                f"语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text}"
+                f"Speech recognition took: {time.time() - start_time:.3f}s | result: {text}"
             )
 
             return text, file_path
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"Speech recognition failed: {e}", exc_info=True)
             return "", file_path

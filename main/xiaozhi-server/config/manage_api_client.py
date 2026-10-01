@@ -16,7 +16,7 @@ class DeviceNotFoundException(Exception):
 class DeviceBindException(Exception):
     def __init__(self, bind_code):
         self.bind_code = bind_code
-        super().__init__(f"设备绑定异常，绑定码: {bind_code}")
+        super().__init__(f"Device binding error, bind code: {bind_code}")
 
 
 class ManageApiClient:
@@ -40,13 +40,13 @@ class ManageApiClient:
         cls.config = config.get("manager-api")
 
         if not cls.config:
-            raise Exception("manager-api配置错误")
+            raise Exception("manager-api config error")
 
         if not cls.config.get("url") or not cls.config.get("secret"):
-            raise Exception("manager-api的url或secret配置错误")
+            raise Exception("manager-api url or secret is misconfigured")
 
         if "你" in cls.config.get("secret"):
-            raise Exception("请先配置manager-api的secret")
+            raise Exception("Please configure the manager-api secret first")
 
         cls._secret = cls.config.get("secret")
         cls.max_retries = cls.config.get("max_retries", 6)  # 最大重试次数
@@ -68,7 +68,7 @@ class ManageApiClient:
             # 清空连接池后又有请求将新客户端写回。
             with cls._instance_lock:
                 if cls._closed:
-                    raise Exception("ManageApiClient已关闭，不再创建新的HTTP客户端")
+                    raise Exception("ManageApiClient is closed, no new HTTP client will be created")
 
                 if loop_id not in cls._async_clients:
                     # 服务端可能主动关闭连接，httpx 连接池无法正确检测和清理
@@ -89,7 +89,7 @@ class ManageApiClient:
                 return cls._async_clients[loop_id]
         except RuntimeError:
             # 如果没有运行中的事件循环，创建一个临时的
-            raise Exception("必须在异步上下文中调用")
+            raise Exception("Must be called from an async context")
 
     @classmethod
     async def _async_request(cls, method: str, endpoint: str, **kwargs) -> Dict:
@@ -110,7 +110,7 @@ class ManageApiClient:
             elif result.get("code") == 10042:
                 raise DeviceBindException(result.get("msg"))
             elif result.get("code") != 0:
-                raise Exception(f"API返回错误: {result.get('msg', '未知错误')}")
+                raise Exception(f"API returned error: {result.get('msg', 'unknown error')}")
 
             # 返回成功数据
             return result.get("data") if result.get("code") == 0 else None
@@ -151,7 +151,7 @@ class ManageApiClient:
                 if retry_count < cls.max_retries and cls._should_retry(e):
                     retry_count += 1
                     print(
-                        f"{method} {endpoint} 异步请求失败，将在 {cls.retry_delay:.1f} 秒后进行第 {retry_count} 次重试"
+                        f"{method} {endpoint} async request failed, retry #{retry_count} in {cls.retry_delay:.1f}s"
                     )
                     await asyncio.sleep(cls.retry_delay)
                     continue
@@ -206,7 +206,7 @@ def api_guard(error_msg: str = None, raise_when_closed: bool = False):
             instance = ManageApiClient._get_instance()
             if instance is None:
                 if raise_when_closed:
-                    raise Exception("ManageApiClient未初始化或已关闭")
+                    raise Exception("ManageApiClient not initialized or already closed")
                 return None
             if error_msg is None:
                 return await func(instance, *args, **kwargs)
@@ -243,7 +243,7 @@ async def get_agent_models(
     )
 
 
-@api_guard("获取替换词失败")
+@api_guard("Failed to get replacement words")
 async def get_correct_words(instance, mac_address: str) -> Optional[Dict]:
     """获取智能体替换词"""
     return await instance._execute_async_request(
@@ -252,7 +252,7 @@ async def get_correct_words(instance, mac_address: str) -> Optional[Dict]:
     )
 
 
-@api_guard("生成并保存聊天记录总结失败")
+@api_guard("Failed to generate and save chat summary")
 async def generate_and_save_chat_summary(instance, session_id: str) -> Optional[Dict]:
     """生成并保存聊天记录总结（守护线程中调用，服务已关闭时静默返回 None）"""
     return await instance._execute_async_request(
@@ -261,7 +261,7 @@ async def generate_and_save_chat_summary(instance, session_id: str) -> Optional[
     )
 
 
-@api_guard("生成并保存聊天标题失败")
+@api_guard("Failed to generate and save chat title")
 async def generate_and_save_chat_title(instance, session_id: str) -> Optional[Dict]:
     """生成并保存聊天标题（守护线程中调用，服务已关闭时静默返回 None）"""
     return await instance._execute_async_request(
@@ -270,7 +270,7 @@ async def generate_and_save_chat_title(instance, session_id: str) -> Optional[Di
     )
 
 
-@api_guard("TTS上报失败")
+@api_guard("TTS report failed")
 async def report(
     instance, mac_address: str, session_id: str, chat_type: int, content: str, audio, report_time
 ) -> Optional[Dict]:
@@ -293,7 +293,7 @@ async def report(
     )
 
 
-@api_guard("通讯录查找失败")
+@api_guard("Contact lookup failed")
 async def lookup_address_book(instance, caller_mac: str, nickname: str) -> Optional[Dict]:
     """根据昵称查找目标设备"""
     return await instance._execute_async_request(

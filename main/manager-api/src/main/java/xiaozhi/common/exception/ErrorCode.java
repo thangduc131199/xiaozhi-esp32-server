@@ -260,4 +260,44 @@ public interface ErrorCode {
     // 替换词相关错误码
     int CORRECT_WORD_FILE_NAME_EXISTS = 10203; // 文件名已存在
     int FILE_SIZE_OVER_LIMIT = 10204; // 文件大小超过限制
+
+    // 越南语本地化：原硬编码提示语改为错误码
+    int FIRMWARE_INFO_EMPTY = 10205; // 固件信息不能为空
+    int FIRMWARE_NAME_EMPTY = 10206; // 固件名称不能为空
+    int FIRMWARE_TYPE_EMPTY = 10207; // 固件类型不能为空
+    int FIRMWARE_VERSION_EMPTY = 10208; // 版本号不能为空
+    int FIRMWARE_DELETE_ID_EMPTY = 10209; // 删除的固件ID不能为空
+    int FILE_NAME_EMPTY = 10211; // 文件名不能为空
+    int FIRMWARE_FILE_TYPE_INVALID = 10212; // 只允许上传.bin和.apk格式的文件
+    int FILE_UPLOAD_FAILED = 10213; // 文件上传失败：{0}
+    int DICT_TYPE_ID_EMPTY = 10214; // dictTypeId不能为空
+    int AGENT_SNAPSHOT_NO_PERMISSION = 10215; // 没有权限访问该智能体快照
+    int TEMPLATE_NOT_FOUND = 10216; // 模板不存在
+    int TEMPLATE_CREATE_FAILED = 10217; // 创建模板失败
+    int TEMPLATE_UPDATE_FAILED = 10218; // 更新模板失败
+    int TEMPLATE_DELETE_FAILED = 10219; // 删除模板失败
+    int TEMPLATE_BATCH_DELETE_FAILED = 10220; // 批量删除模板失败
+    int SUMMARY_TASK_START_FAILED = 10221; // 启动异步总结生成任务失败: {0}
+    int AUDIO_NOT_FOUND = 10222; // 音频不存在
+    int DEVICE_NOT_FOUND = 10223; // 设备不存在
+    int DEVICE_NO_PERMISSION = 10224; // 无权限操作该设备
+    int DEVICE_FORWARD_FAILED = 10225; // 转发请求失败: {0}
+    int DOCUMENT_IDS_EMPTY = 10226; // document_ids参数不能为空
+    int DOCUMENT_PARSE_FAILED = 10227; // 文档解析失败，文档可能正在处理中
+    int MODEL_CONFIG_NOT_FOUND = 10228; // 模型配置不存在
+    int DEFAULT_MODEL_CANNOT_DISABLE = 10229; // 默认模型配置不允许关闭
+    int VOICE_CLONE_FILE_TYPE_INVALID = 10230; // 只允许上传.mp3和.wav格式的文件
+    int RETRIEVAL_KB_NOT_SPECIFIED = 10231; // 未指定召回测试的知识库
+    int SNAPSHOT_DATA_EMPTY = 10232; // 快照数据为空，无法恢复
+    int SNAPSHOT_CONFIG_CHANGED = 10233; // 当前配置已变化，请重新打开恢复预览后再试
+    int SNAPSHOT_RESTORE_FAILED = 10234; // 智能体快照恢复失败
+    int SNAPSHOT_LATEST_CANNOT_DELETE = 10235; // 最新历史版本不能删除
+    int SNAPSHOT_MIGRATION_PARSE_FAILED = 10236; // 历史快照数据无法解析，已中止脱敏迁移: {0}
+    int SNAPSHOT_MIGRATION_FAILED = 10237; // 历史快照批量脱敏迁移失败
+    int SNAPSHOT_VERSION_FAILED = 10238; // 快照版本号生成失败
+    int SNAPSHOT_NOT_FOUND = 10239; // 快照不存在
+    int SNAPSHOT_TAG_DELETED = 10240; // 快照引用的标签已被删除，无法恢复，请先重新创建或选择标签
+    int SNAPSHOT_PARSE_FAILED = 10241; // 快照数据无法解析
+    int SNAPSHOT_SENSITIVE_REMOVED = 10242; // 目标版本会移除无法写入历史的敏感配置，请先手动处理相关密钥后再恢复
+    int SNAPSHOT_SENSITIVE_UNSAFE = 10243; // 快照中的敏感信息无法安全恢复: {0}
 }

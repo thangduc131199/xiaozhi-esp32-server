@@ -1,5 +1,6 @@
 package xiaozhi.modules.agent.controller;
 
+import xiaozhi.common.exception.ErrorCode;
 import java.util.List;
 import java.util.Map;
 
@@ -83,7 +84,7 @@ public class AgentTemplateController {
     public Result<AgentTemplateVO> getAgentTemplateById(@PathVariable("id") String id) {
         AgentTemplateEntity template = agentTemplateService.getById(id);
         if (template == null) {
-            return ResultUtils.error("模板不存在");
+            return ResultUtils.error(ErrorCode.TEMPLATE_NOT_FOUND);
         }
         
         // 使用ConvertUtils转换为VO
@@ -103,7 +104,7 @@ public class AgentTemplateController {
         if (saved) {
             return ResultUtils.success(template);
         } else {
-            return ResultUtils.error("创建模板失败");
+            return ResultUtils.error(ErrorCode.TEMPLATE_CREATE_FAILED);
         }
     }
     
@@ -115,7 +116,7 @@ public class AgentTemplateController {
         if (updated) {
             return ResultUtils.success(template);
         } else {
-            return ResultUtils.error("更新模板失败");
+            return ResultUtils.error(ErrorCode.TEMPLATE_UPDATE_FAILED);
         }
     }
     
@@ -126,7 +127,7 @@ public class AgentTemplateController {
         // 先查询要删除的模板信息，获取其排序值
         AgentTemplateEntity template = agentTemplateService.getById(id);
         if (template == null) {
-            return ResultUtils.error("模板不存在");
+            return ResultUtils.error(ErrorCode.TEMPLATE_NOT_FOUND);
         }
         
         Integer deletedSort = template.getSort();
@@ -138,7 +139,7 @@ public class AgentTemplateController {
             agentTemplateService.reorderTemplatesAfterDelete(deletedSort);
             return ResultUtils.success("删除模板成功");
         } else {
-            return ResultUtils.error("删除模板失败");
+            return ResultUtils.error(ErrorCode.TEMPLATE_DELETE_FAILED);
         }
     }
     
@@ -152,7 +153,7 @@ public class AgentTemplateController {
         if (deleted) {
             return ResultUtils.success("批量删除成功");
         } else {
-            return ResultUtils.error("批量删除模板失败");
+            return ResultUtils.error(ErrorCode.TEMPLATE_BATCH_DELETE_FAILED);
         }
     }
 }

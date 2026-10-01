@@ -62,7 +62,7 @@
       <div class="section-divider"></div>
     </teleport>
 
-    <el-form :model="form.configJson" ref="callInfoForm" label-width="auto" label-position="left">
+    <el-form :model="form.configJson" ref="callInfoForm" label-width="150px" label-position="left" class="call-info-form">
       <template>
         <div v-for="(row, rowIndex) in chunkedCallInfoFields" :key="rowIndex" class="form-row">
           <el-form-item v-for="field in row" :key="field.prop" :label="field.label" :prop="field.prop"
@@ -314,7 +314,7 @@ export default {
                 : f.type === "password"
                   ? "password"
                   : "text",
-            placeholder: `请输入${f.key}`,
+            placeholder: this.$t('ui.enterField', { field: f.key }),
           }));
 
           if (this.pendingModelData && this.pendingProviderType === providerCode) {
@@ -368,13 +368,13 @@ export default {
           return parsed;
         }
         this.$message.error({
-          message: '必须输入字典格式（如 {"key":"value"}），保存则使用原数据',
+          message: this.$t('ui.dictFormatRequired'),
           showClose: true,
         });
         return null;
       } catch (e) {
         this.$message.error({
-          message: 'JSON格式错误（如 {"key":"value"}），保存则使用原数据',
+          message: this.$t('ui.jsonFormatError'),
           showClose: true,
         });
         return null;
@@ -526,5 +526,15 @@ export default {
   ::v-deep .el-form-item {
     margin-bottom: 10px;
   }
+}
+
+/* 限制调用信息表单的标签宽度，长标签换行而不挤压输入框 */
+.call-info-form ::v-deep .el-form-item__label {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 18px;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
 }
 </style>

@@ -1,5 +1,6 @@
 """呼叫设备工具"""
 import httpx
+from core.utils import i18n
 from config.logger import setup_logging
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
 from typing import TYPE_CHECKING
@@ -39,8 +40,8 @@ async def _request_api(url: str, params: dict, headers: dict):
         return await client.get(url, params=params, headers=headers)
 
 
-def _failed_reply(msg: str) -> ActionResponse:
-    return ActionResponse(action=Action.RESPONSE, response=msg)
+def _failed_reply(conn: "ConnectionHandler", msg: str) -> ActionResponse:
+    return ActionResponse(action=Action.RESPONSE, response=i18n.tr(conn.config, msg))
 
 
 def _is_answering(conn: "ConnectionHandler") -> bool:
@@ -52,14 +53,14 @@ def _is_answering(conn: "ConnectionHandler") -> bool:
 async def call_device(conn: "ConnectionHandler", nickname: str):
     caller_mac = conn.headers.get("device-id")
     if not caller_mac:
-        return _failed_reply("无法获取本机MAC地址")
+        return _failed_reply(conn, "无法获取本机MAC地址")
 
     api_config = conn.config.get("manager-api", {})
     api_url = api_config.get("url")
     api_secret = api_config.get("secret")
     if not api_url or not api_secret:
-        logger.bind(tag=TAG).error("manager-api配置缺失")   
-        return _failed_reply("配置错误，请稍后再试")
+        logger.bind(tag=TAG).error("manager-api config is missing")   
+        return _failed_reply(conn, "配置错误，请稍后再试")
 
     headers = {"Authorization": f"Bearer {api_secret}"}
 
@@ -78,18 +79,18 @@ async def call_device(conn: "ConnectionHandler", nickname: str):
         )
         result = resp.json()
     except httpx.HTTPError as e:
-        logger.bind(tag=TAG).error(f"呼叫请求失败: {e}")
-        return _failed_reply("呼叫失败，请稍后再试")
+        logger.bind(tag=TAG).error(f"Call request failed: {e}")
+        return _failed_reply(conn, "呼叫失败，请稍后再试")
 
     if result.get("code") != 0:
-        return _failed_reply(result.get("msg", "呼叫失败"))
+        return _failed_reply(conn, result.get("msg", "呼叫失败"))
 
     data = result.get("data", {})
     if data.get("status") == "error":
-        return _failed_reply(data.get("message"))
+        return _failed_reply(conn, data.get("message"))
 
     if is_answer:
-        return ActionResponse(action=Action.NONE, response="已成功接听")
+        return ActionResponse(action=Action.NONE, response=i18n.tr(conn.config, "已成功接听"))
     else:
         conn.calling = True
-        return ActionResponse(action=Action.NONE, response=f"正在呼叫{nickname}，请等待对方接听")
+        return ActionResponse(action=Action.NONE, response=i18n.tr(conn.config, "正在呼叫{nickname}，请等待对方接听", nickname=nickname))

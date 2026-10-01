@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from core.connection import ConnectionHandler
 from config.logger import setup_logging
 from jinja2 import Template
+from core.utils import i18n
 
 TAG = __name__
 
@@ -85,7 +86,7 @@ class PromptManager:
             cached_template = self.cache_manager.get(self.CacheType.CONFIG, cache_key)
             if cached_template is not None:
                 self.base_prompt_template = cached_template
-                self.logger.bind(tag=TAG).debug("从缓存加载基础提示词模板")
+                self.logger.bind(tag=TAG).debug("Loaded base prompt template from cache")
                 return
 
             # 缓存未命中，从文件读取
@@ -98,11 +99,11 @@ class PromptManager:
                     self.CacheType.CONFIG, cache_key, template_content
                 )
                 self.base_prompt_template = template_content
-                self.logger.bind(tag=TAG).debug("成功加载基础提示词模板并缓存")
+                self.logger.bind(tag=TAG).debug("Loaded and cached base prompt template")
             else:
-                self.logger.bind(tag=TAG).warning(f"未找到{template_path}文件")
+                self.logger.bind(tag=TAG).warning(f"File {template_path} not found")
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"加载提示词模板失败: {e}")
+            self.logger.bind(tag=TAG).error(f"Failed to load prompt template: {e}")
 
     def get_quick_prompt(self, user_prompt: str, device_id: str = None) -> str:
         """快速获取系统提示词（使用用户配置）"""
@@ -111,20 +112,20 @@ class PromptManager:
             self.CacheType.DEVICE_PROMPT, device_cache_key
         )
         if cached_device_prompt is not None:
-            self.logger.bind(tag=TAG).debug(f"使用设备 {device_id} 的缓存提示词")
+            self.logger.bind(tag=TAG).debug(f"Using cached prompt for device {device_id}")
             return cached_device_prompt
         else:
             self.logger.bind(tag=TAG).debug(
-                f"设备 {device_id} 无缓存提示词，使用传入的提示词"
+                f"No cached prompt for device {device_id}, using the provided prompt"
             )
 
         # 使用传入的提示词并缓存（如果有设备ID）
         if device_id:
             device_cache_key = f"device_prompt:{device_id}"
             self.cache_manager.set(self.CacheType.DEVICE_PROMPT, device_cache_key, user_prompt)
-            self.logger.bind(tag=TAG).debug(f"设备 {device_id} 的提示词已缓存")
+            self.logger.bind(tag=TAG).debug(f"Prompt cached for device {device_id}")
 
-        self.logger.bind(tag=TAG).info(f"使用快速提示词: {user_prompt[:50]}...")
+        self.logger.bind(tag=TAG).info(f"Using quick prompt: {user_prompt[:50]}...")
         return user_prompt
 
     def _get_current_time_info(self) -> tuple:
@@ -135,9 +136,10 @@ class PromptManager:
             get_current_lunar_date,
         )
 
+        lang = i18n.get_language(self.config)
         today_date = get_current_date()
-        today_weekday = get_current_weekday()
-        lunar_date = get_current_lunar_date() + "\n"
+        today_weekday = get_current_weekday(lang)
+        lunar_date = get_current_lunar_date(lang) + "\n"
 
         return today_date, today_weekday, lunar_date
 
@@ -153,15 +155,15 @@ class PromptManager:
             from core.utils.util import get_ip_info
 
             ip_info = get_ip_info(client_ip, self.logger)
-            city = ip_info.get("city", "未知位置")
+            city = ip_info.get("city") or i18n.t(self.config, "unknown_location")
             location = f"{city}"
 
             # 存入缓存
             self.cache_manager.set(self.CacheType.LOCATION, client_ip, location)
             return location
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"获取位置信息失败: {e}")
-            return "未知位置"
+            self.logger.bind(tag=TAG).error(f"Failed to get location info: {e}")
+            return i18n.t(self.config, "unknown_location")
 
     def _get_weather_info(self, conn: "ConnectionHandler", location: str) -> str:
         """获取天气信息"""
@@ -184,7 +186,7 @@ class PromptManager:
             async def _call():
                 try:
                     result_holder.append(
-                        await get_weather(conn, location=location, lang="zh_CN")
+                        await get_weather(conn, location=location)
                     )
                 except Exception as e:
                     exception_holder.append(e)
@@ -194,7 +196,7 @@ class PromptManager:
             event = threading.Event()
             conn.loop.call_soon_threadsafe(lambda: asyncio.ensure_future(_call()))
             if not event.wait(timeout=10):
-                raise TimeoutError("获取天气信息超时")
+                raise TimeoutError("Timed out fetching weather info")
             if exception_holder:
                 raise exception_holder[0]
             result = result_holder[0]
@@ -202,11 +204,11 @@ class PromptManager:
                 weather_report = result.result
                 self.cache_manager.set(self.CacheType.WEATHER, location, weather_report)
                 return weather_report
-            return "天气信息获取失败"
+            return i18n.tr(self.config, "天气信息获取失败")
 
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"获取天气信息失败: {e}")
-            return "天气信息获取失败"
+            self.logger.bind(tag=TAG).error(f"Failed to get weather info: {e}")
+            return i18n.tr(self.config, "天气信息获取失败")
 
     def update_context_info(self, conn, client_ip: str):
         """同步更新上下文信息"""
@@ -241,10 +243,10 @@ class PromptManager:
                 else:
                     self.context_data = ""
 
-            self.logger.bind(tag=TAG).debug(f"上下文信息更新完成")
+            self.logger.bind(tag=TAG).debug(f"Context info updated")
 
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"更新上下文信息失败: {e}")
+            self.logger.bind(tag=TAG).error(f"Failed to update context info: {e}")
 
     def build_enhanced_prompt(
         self, user_prompt: str, device_id: str, client_ip: str = None, *args, **kwargs
@@ -274,14 +276,14 @@ class PromptManager:
                         or ""
                     )
 
-            # 获取TTS选择的语言，默认值为中文
+            # 获取TTS选择的语言，未设置时按服务端默认语种
             language = (
                 self.config.get("TTS", {})
                 .get(self.config.get("selected_module", {}).get("TTS", ""), {})
                 .get("language")
-                or "中文"
+                or i18n.t(self.config, "prompt_language")
             )
-            self.logger.bind(tag=TAG).debug(f"获取到选择的语言: {language}")
+            self.logger.bind(tag=TAG).debug(f"Selected language: {language}")
 
             # 替换模板变量
             template = Template(self.base_prompt_template)
@@ -306,10 +308,10 @@ class PromptManager:
                 self.CacheType.DEVICE_PROMPT, device_cache_key, enhanced_prompt
             )
             self.logger.bind(tag=TAG).info(
-                f"构建增强提示词成功，长度: {len(enhanced_prompt)}"
+                f"Built enhanced prompt, length: {len(enhanced_prompt)}"
             )
             return enhanced_prompt
 
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"构建增强提示词失败: {e}")
+            self.logger.bind(tag=TAG).error(f"Failed to build enhanced prompt: {e}")
             return user_prompt

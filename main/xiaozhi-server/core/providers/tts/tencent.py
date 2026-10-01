@@ -168,7 +168,7 @@ class TTSProvider(TTSProviderBase):
                 if response_data.get("Response", {}).get("Error") is not None:
                     error_info = response_data["Response"]["Error"]
                     raise Exception(
-                        f"API返回错误: {error_info['Code']}: {error_info['Message']}"
+                        f"API returned error: {error_info['Code']}: {error_info['Message']}"
                     )
 
                 # 解码Base64音频数据
@@ -180,7 +180,7 @@ class TTSProvider(TTSProviderBase):
                     else:
                         return audio_bytes
                 else:
-                    raise Exception(f"{__name__}: 没有返回音频数据: {response_data}")
+                    raise Exception(f"{__name__}: no audio data returned: {response_data}")
             else:
                 raise Exception(
                     f"{__name__} status_code: {resp.status_code} response: {resp.content}"

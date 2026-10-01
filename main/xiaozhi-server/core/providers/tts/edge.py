@@ -70,5 +70,5 @@ class TTSProvider(TTSProviderBase):
                         audio_bytes += chunk["data"]
                 return audio_bytes
         except Exception as e:
-            error_msg = f"Edge TTS请求失败: {e}"
+            error_msg = f"Edge TTS request failed: {e}"
             raise Exception(error_msg)  # 抛出异常，让调用方捕获

@@ -82,11 +82,15 @@ export default {
     },
     cancelText: {
       type: String,
-      default: "取消"
+      default() {
+        return this.$t('button.cancel')
+      }
     },
     confirmText: {
       type: String,
-      default: "确认保存"
+      default() {
+        return this.$t('ui.confirmSave')
+      }
     }
   },
   data() {

@@ -19,7 +19,7 @@ class ASRProvider(ASRProviderBase):
         # 配置参数
         self.api_key = config.get("api_key")
         if not self.api_key:
-            raise ValueError("Qwen3-ASR-Flash 需要配置 api_key")
+            raise ValueError("Qwen3-ASR-Flash requires api_key to be configured")
             
         self.model_name = config.get("model_name", "qwen3-asr-flash")
         self.output_dir = config.get("output_dir", "./audio_output")
@@ -107,5 +107,5 @@ class ASRProvider(ASRProviderBase):
             return full_text, file_path
                 
         except Exception as e:
-            logger.bind(tag=tag).error(f"语音识别失败: {e}")
+            logger.bind(tag=tag).error(f"Speech recognition failed: {e}")
             return "", file_path

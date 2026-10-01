@@ -1,3 +1,4 @@
+from core.utils import i18n
 import json
 from config.logger import setup_logging
 import requests
@@ -75,7 +76,7 @@ class LLMProvider(LLMProviderBase):
                             if event["data"]["status"] == "succeeded":
                                 yield event["data"]["outputs"]["answer"]
                             else:
-                                yield "【服务响应异常】"
+                                yield i18n.tr(None, "【服务响应异常】")
             elif self.mode == "completion-messages":
                 for line in r.iter_lines():
                     if line.startswith(b"data: "):

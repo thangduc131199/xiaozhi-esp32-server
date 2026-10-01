@@ -1,8 +1,9 @@
 """服务端MCP工具执行器"""
 
+from core.utils import i18n
 from typing import Dict, Any, Optional
 from ..base import ToolType, ToolDefinition, ToolExecutor
-from plugins_func.register import Action, ActionResponse
+from plugins_func.register import Action, ActionResponse, tool_error_response
 from .mcp_manager import ServerMCPManager
 
 
@@ -28,7 +29,7 @@ class ServerMCPExecutor(ToolExecutor):
         if not self._initialized or not self.mcp_manager:
             return ActionResponse(
                 action=Action.ERROR,
-                response="MCP管理器未初始化",
+                response=i18n.tr(conn.config, "MCP管理器未初始化"),
             )
 
         try:
@@ -40,17 +41,8 @@ class ServerMCPExecutor(ToolExecutor):
             result = await self.mcp_manager.execute_tool(actual_tool_name, arguments)
 
             return ActionResponse(action=Action.REQLLM, result=str(result))
-
-        except ValueError as e:
-            return ActionResponse(
-                action=Action.NOTFOUND,
-                response=str(e),
-            )
         except Exception as e:
-            return ActionResponse(
-                action=Action.ERROR,
-                response=str(e),
-            )
+            return tool_error_response(e)
 
     def get_tools(self) -> Dict[str, ToolDefinition]:
         """获取所有服务端MCP工具"""

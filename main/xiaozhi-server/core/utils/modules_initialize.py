@@ -31,7 +31,7 @@ def initialize_modules(
     if init_tts:
         select_tts_module = config["selected_module"]["TTS"]
         modules["tts"] = initialize_tts(config)
-        logger.bind(tag=TAG).info(f"初始化组件: tts成功 {select_tts_module}")
+        logger.bind(tag=TAG).info(f"Component initialized: tts {select_tts_module}")
 
     # 初始化LLM模块
     if init_llm:
@@ -43,9 +43,10 @@ def initialize_modules(
         )
         modules["llm"] = llm.create_instance(
             llm_type,
-            config["LLM"][select_llm_module],
+            # 附带服务端语种，供主对话LLM追加回复语种提醒
+            {**config["LLM"][select_llm_module], "default_language": config.get("default_language")},
         )
-        logger.bind(tag=TAG).info(f"初始化组件: llm成功 {select_llm_module}")
+        logger.bind(tag=TAG).info(f"Component initialized: llm {select_llm_module}")
 
     # 初始化Intent模块
     if init_intent:
@@ -57,9 +58,10 @@ def initialize_modules(
         )
         modules["intent"] = intent.create_instance(
             intent_type,
-            config["Intent"][select_intent_module],
+            # 附带服务端语种，供意图识别提示词选择语言
+            {**config["Intent"][select_intent_module], "default_language": config.get("default_language")},
         )
-        logger.bind(tag=TAG).info(f"初始化组件: intent成功 {select_intent_module}")
+        logger.bind(tag=TAG).info(f"Component initialized: intent {select_intent_module}")
 
     # 初始化Memory模块
     if init_memory:
@@ -71,10 +73,11 @@ def initialize_modules(
         )
         modules["memory"] = memory.create_instance(
             memory_type,
-            config["Memory"][select_memory_module],
+            # 附带服务端语种，供记忆总结提示词选择语言
+            {**config["Memory"][select_memory_module], "default_language": config.get("default_language")},
             config.get("summaryMemory", None),
         )
-        logger.bind(tag=TAG).info(f"初始化组件: memory成功 {select_memory_module}")
+        logger.bind(tag=TAG).info(f"Component initialized: memory {select_memory_module}")
 
     # 初始化VAD模块
     if init_vad:
@@ -88,13 +91,13 @@ def initialize_modules(
             vad_type,
             config["VAD"][select_vad_module],
         )
-        logger.bind(tag=TAG).info(f"初始化组件: vad成功 {select_vad_module}")
+        logger.bind(tag=TAG).info(f"Component initialized: vad {select_vad_module}")
 
     # 初始化ASR模块
     if init_asr:
         select_asr_module = config["selected_module"]["ASR"]
         modules["asr"] = initialize_asr(config)
-        logger.bind(tag=TAG).info(f"初始化组件: asr成功 {select_asr_module}")
+        logger.bind(tag=TAG).info(f"Component initialized: asr {select_asr_module}")
     return modules
 
 
@@ -124,10 +127,11 @@ def initialize_asr(config):
     )
     new_asr = asr.create_instance(
         asr_type,
-        config["ASR"][select_asr_module],
+        # 附带服务端语种，供识别语种与上下文提示的默认值使用
+        {**config["ASR"][select_asr_module], "default_language": config.get("default_language")},
         str(config.get("delete_audio", True)).lower() in ("true", "1", "yes"),
     )
-    logger.bind(tag=TAG).info("ASR模块初始化完成")
+    logger.bind(tag=TAG).info("ASR module initialized")
     return new_asr
 
 
@@ -139,14 +143,14 @@ def initialize_voiceprint(asr_instance, config):
 
     # 应用配置
     if not voiceprint_config.get("url") or not voiceprint_config.get("speakers"):
-        logger.bind(tag=TAG).warning("声纹识别配置不完整")
+        logger.bind(tag=TAG).warning("Voiceprint recognition config is incomplete")
         return False
         
     try:
         asr_instance.init_voiceprint(voiceprint_config)
-        logger.bind(tag=TAG).info("ASR模块声纹识别功能已动态启用")
-        logger.bind(tag=TAG).info(f"配置说话人数量: {len(voiceprint_config['speakers'])}")
+        logger.bind(tag=TAG).info("Voiceprint recognition enabled dynamically for ASR module")
+        logger.bind(tag=TAG).info(f"Configured speaker count: {len(voiceprint_config['speakers'])}")
         return True
     except Exception as e:
-        logger.bind(tag=TAG).error(f"动态初始化声纹识别功能失败: {str(e)}")
+        logger.bind(tag=TAG).error(f"Failed to dynamically initialize voiceprint recognition: {str(e)}")
         return False

@@ -144,7 +144,7 @@ def ensure_directories(config):
         try:
             os.makedirs(dir_path, exist_ok=True)
         except PermissionError:
-            print(f"警告：无法创建目录 {dir_path}，请检查写入权限")
+            print(f"Warning: unable to create directory {dir_path}, check write permissions")
 
 
 def merge_configs(default_config, custom_config):

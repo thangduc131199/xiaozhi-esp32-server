@@ -55,3 +55,17 @@ def test_get_current_lunar_date_contains_year():
     """cnlunar should produce a string containing 年 character."""
     lunar = current_time.get_current_lunar_date()
     assert "年" in lunar
+
+@freeze_time("2026-09-02 10:30:00")  # 2026-09-02 is a Wednesday
+def test_get_current_weekday_vietnamese():
+    assert current_time.get_current_weekday("vi") == "Thứ Tư"
+
+
+@freeze_time("2026-09-29 10:00:00")  # 农历八月十九，丙午年
+def test_get_current_lunar_date_vietnamese():
+    assert current_time.get_current_lunar_date("vi") == "ngày 19 tháng 8 năm Bính Ngọ"
+
+
+@freeze_time("2026-02-10 10:00:00")  # 立春之后、春节之前，仍属乙巳年
+def test_lunar_year_uses_lunar_new_year_not_solar_term():
+    assert current_time.get_current_lunar_date("vi").endswith("năm Ất Tỵ")

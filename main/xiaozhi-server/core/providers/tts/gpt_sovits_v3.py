@@ -61,6 +61,6 @@ class TTSProvider(TTSProviderBase):
             else:
                 return resp.content
         else:
-            error_msg = f"GPT_SoVITS_V3 TTS请求失败: {resp.status_code} - {resp.text}"
+            error_msg = f"GPT_SoVITS_V3 TTS request failed: {resp.status_code} - {resp.text}"
             logger.bind(tag=TAG).error(error_msg)
             raise Exception(error_msg)

@@ -1,5 +1,6 @@
 package xiaozhi.modules.model.controller;
 
+import xiaozhi.common.exception.ErrorCode;
 import java.util.List;
 
 import org.apache.shiro.authz.annotation.RequiresPermissions;
@@ -127,11 +128,11 @@ public class ModelController {
     public Result<Void> enableModelConfig(@PathVariable String id, @PathVariable Integer status) {
         ModelConfigEntity entity = modelConfigService.selectById(id);
         if (entity == null) {
-            return new Result<Void>().error("模型配置不存在");
+            return new Result<Void>().error(ErrorCode.MODEL_CONFIG_NOT_FOUND);
         }
         // 不能关闭默认模型
         if (status == 0 && entity.getIsDefault() > 0) {
-            return new Result<Void>().error("默认模型配置不允许关闭");
+            return new Result<Void>().error(ErrorCode.DEFAULT_MODEL_CANNOT_DISABLE);
         }
         // 不更新ConfigJson字段
         entity.setConfigJson(null);
@@ -146,7 +147,7 @@ public class ModelController {
     public Result<Void> setDefaultModel(@PathVariable String id) {
         ModelConfigEntity entity = modelConfigService.selectById(id);
         if (entity == null) {
-            return new Result<Void>().error("模型配置不存在");
+            return new Result<Void>().error(ErrorCode.MODEL_CONFIG_NOT_FOUND);
         }
         // 将其他模型设置为非默认
         modelConfigService.setDefaultModel(entity.getModelType(), 0);

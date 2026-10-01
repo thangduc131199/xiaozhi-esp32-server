@@ -26,6 +26,8 @@ class ASRProvider(ASRProviderBase):
         self.secret_id = config.get("secret_id")
         self.secret_key = config.get("secret_key")
         self.output_dir = config.get("output_dir")
+        # 引擎模型类型，默认中文普通话通用，其他语种参考腾讯云文档
+        self.eng_service_type = config.get("eng_service_type", "16k_zh")
         self.delete_audio_file = delete_audio_file
 
         # 确保输出目录存在
@@ -36,13 +38,13 @@ class ASRProvider(ASRProviderBase):
     ) -> Tuple[Optional[str], Optional[str]]:
         """将语音数据转换为文本"""
         if not opus_data:
-            logger.bind(tag=TAG).warning("音频数据为空！")
+            logger.bind(tag=TAG).warning("Audio data is empty!")
             return None, None
 
         try:
             # 检查配置是否已设置
             if not self.secret_id or not self.secret_key:
-                logger.bind(tag=TAG).error("腾讯云语音识别配置未设置，无法进行识别")
+                logger.bind(tag=TAG).error("Tencent Cloud ASR is not configured, cannot recognize")
                 return None, None
 
             if artifacts is None:
@@ -63,13 +65,13 @@ class ASRProvider(ASRProviderBase):
 
             if result:
                 logger.bind(tag=TAG).debug(
-                    f"腾讯云语音识别耗时: {time.time() - start_time:.3f}s | 结果: {result}"
+                    f"Tencent Cloud ASR took: {time.time() - start_time:.3f}s | result: {result}"
                 )
 
             return result, artifacts.file_path
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"处理音频时发生错误！{e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"Error processing audio! {e}", exc_info=True)
             return None, None
 
     def _build_request_body(self, base64_audio: str) -> str:
@@ -77,7 +79,7 @@ class ASRProvider(ASRProviderBase):
         request_map = {
             "ProjectId": 0,
             "SubServiceType": 2,  # 一句话识别
-            "EngSerViceType": "16k_zh",  # 中文普通话通用
+            "EngSerViceType": self.eng_service_type,
             "SourceType": 1,  # 音频数据来源为语音文件
             "VoiceFormat": self.FORMAT,  # 音频格式
             "Data": base64_audio,  # Base64编码的音频数据
@@ -167,8 +169,8 @@ class ASRProvider(ASRProviderBase):
             return timestamp, authorization
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"生成认证头失败: {e}", exc_info=True)
-            raise RuntimeError(f"生成认证头失败: {e}")
+            logger.bind(tag=TAG).error(f"Failed to generate auth header: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to generate auth header: {e}")
 
     def _send_request(
         self, request_body: str, timestamp: str, authorization: str
@@ -188,7 +190,7 @@ class ASRProvider(ASRProviderBase):
             response = requests.post(self.API_URL, headers=headers, data=request_body)
 
             if not response.ok:
-                raise IOError(f"请求失败: {response.status_code} {response.reason}")
+                raise IOError(f"Request failed: {response.status_code} {response.reason}")
 
             response_json = response.json()
 
@@ -197,17 +199,17 @@ class ASRProvider(ASRProviderBase):
                 error = response_json["Response"]["Error"]
                 error_code = error["Code"]
                 error_message = error["Message"]
-                raise IOError(f"API返回错误: {error_code}: {error_message}")
+                raise IOError(f"API returned error: {error_code}: {error_message}")
 
             # 提取识别结果
             if "Response" in response_json and "Result" in response_json["Response"]:
                 return response_json["Response"]["Result"]
             else:
-                logger.bind(tag=TAG).warning(f"响应中没有识别结果: {response_json}")
+                logger.bind(tag=TAG).warning(f"No recognition result in response: {response_json}")
                 return ""
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"发送请求失败: {e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"Failed to send request: {e}", exc_info=True)
             return None
 
     def _sha256_hex(self, data: str) -> str:

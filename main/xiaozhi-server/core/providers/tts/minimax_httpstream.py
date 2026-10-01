@@ -18,6 +18,27 @@ from core.utils.tts import MarkdownCleaner, convert_percentage_to_range
 TAG = __name__
 logger = setup_logging()
 
+DEFAULT_HOST = "api.minimax.io"
+# 音色语言 -> MiniMax language_boost
+LANGUAGE_BOOST_BY_LANGUAGE = {
+    "Tiếng Việt": "Vietnamese",
+    "vi": "Vietnamese",
+}
+
+
+def parse_error_response(body):
+    """解析非SSE的错误响应（如API Key无效、地区不匹配），返回 (错误码, 错误消息)，不是错误时返回None"""
+    try:
+        text = body.decode("utf-8") if isinstance(body, (bytes, bytearray)) else body
+        data = json.loads(text.strip())
+    except (ValueError, UnicodeDecodeError, AttributeError):
+        return None
+    base_resp = data.get("base_resp") or {}
+    status_code = base_resp.get("status_code", 0)
+    if status_code:
+        return status_code, base_resp.get("status_msg", "")
+    return None
+
 
 class TTSProvider(TTSProviderBase):
     def __init__(self, config, delete_audio_file):
@@ -37,7 +58,8 @@ class TTSProvider(TTSProviderBase):
             "pitch": 0,
             "emotion": "happy",
         }
-        default_pronunciation_dict = {"tone": ["处理/(chu3)(li3)", "危险/dangerous"]}
+        # 默认不带发音字典（原默认值为中文示例，会影响其他语种）
+        default_pronunciation_dict = {}
         defult_audio_setting = {
             "sample_rate": 24000,
             "bitrate": 128000,
@@ -74,8 +96,15 @@ class TTSProvider(TTSProviderBase):
                 config["ttsPitch"], min_val=-12, max_val=12, base_val=0
             ))
 
-        self.host = "api.minimaxi.com"  # 备用地址：api-bj.minimaxi.com
-        self.api_url = f"https://{self.host}/v1/t2a_v2?GroupId={self.group_id}"
+        # 国际版：api.minimax.io；中国大陆版：api.minimaxi.com（备用 api-bj.minimaxi.com），API Key不能混用
+        self.host = config.get("api_host") or DEFAULT_HOST
+        self.api_url = f"https://{self.host}/v1/t2a_v2"
+        if self.group_id:
+            self.api_url += f"?GroupId={self.group_id}"
+        # 语种增强，如 Vietnamese；未配置时按音色语言自动选择
+        self.language_boost = config.get("language_boost") or LANGUAGE_BOOST_BY_LANGUAGE.get(
+            config.get("language")
+        )
         self.header = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
@@ -84,6 +113,29 @@ class TTSProvider(TTSProviderBase):
 
         # PCM缓冲区
         self.pcm_buffer = bytearray()
+
+    def _build_payload(self, text):
+        payload = {
+            "model": self.model,
+            "text": text,
+            "stream": True,
+            "voice_setting": self.voice_setting,
+            "audio_setting": self.audio_setting,
+        }
+        if self.pronunciation_dict.get("tone"):
+            payload["pronunciation_dict"] = self.pronunciation_dict
+        if self.language_boost:
+            payload["language_boost"] = self.language_boost
+        if type(self.timber_weights) is list and len(self.timber_weights) > 0:
+            payload["timber_weights"] = self.timber_weights
+            payload["voice_setting"]["voice_id"] = ""
+        return payload
+
+    def _log_error_response(self, status_code, status_msg):
+        hint = ""
+        if status_code in (1004, 2049):
+            hint = f" (make sure the API key matches api_host: international api.minimax.io, mainland China api.minimaxi.com; current {self.host})"
+        logger.bind(tag=TAG).error(f"TTS request failed, code: {status_code}, message: {status_msg}{hint}")
 
     async def open_audio_channels(self, conn):
         """初始化音频通道,并根据conn.sample_rate更新配置"""
@@ -112,7 +164,7 @@ class TTSProvider(TTSProviderBase):
 
                 elif ContentType.FILE == message.content_type:
                     logger.bind(tag=TAG).info(
-                        f"添加音频文件到待播放列表: {message.content_file}"
+                        f"Adding audio file to playback list: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
@@ -125,7 +177,7 @@ class TTSProvider(TTSProviderBase):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"Failed to process TTS text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
                 )
 
     def _process_remaining_text_stream(self, is_last=False):
@@ -152,21 +204,24 @@ class TTSProvider(TTSProviderBase):
             text = MarkdownCleaner.clean_markdown(text)
             if self._correct_words_pattern:
                 text = self._correct_words_pattern.sub(lambda m: self.correct_words[m.group(0)], text)
+            success = False
             try:
-                asyncio.run(self.text_to_speak(text, is_last))
+                success = asyncio.run(self.text_to_speak(text, is_last))
             except Exception as e:
                 logger.bind(tag=TAG).warning(
-                    f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                    f"Speech generation failed {5 - max_repeat_time + 1} times: {original_text}, error: {e}"
                 )
                 max_repeat_time -= 1
 
-            if max_repeat_time > 0:
+            if not success:
+                logger.bind(tag=TAG).error(f"Speech generation failed: {original_text}")
+            elif max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"Speech generated: {original_text}, retries: {5 - max_repeat_time}"
                 )
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"Speech generation failed: {original_text}, check the network or service"
                 )
         except Exception as e:
             logger.bind(tag=TAG).error(f"Failed to generate TTS file: {e}")
@@ -174,19 +229,9 @@ class TTSProvider(TTSProviderBase):
             return None
 
     async def text_to_speak(self, text, is_last):
-        """流式处理TTS音频，每句只推送一次音频列表"""
-        payload = {
-            "model": self.model,
-            "text": text,
-            "stream": True,
-            "voice_setting": self.voice_setting,
-            "pronunciation_dict": self.pronunciation_dict,
-            "audio_setting": self.audio_setting,
-        }
-
-        if type(self.timber_weights) is list and len(self.timber_weights) > 0:
-            payload["timber_weights"] = self.timber_weights
-            payload["voice_setting"]["voice_id"] = ""
+        """流式处理TTS音频，每句只推送一次音频列表；返回是否收到音频"""
+        payload = self._build_payload(text)
+        received_audio = False
 
         frame_bytes = int(
             self.opus_encoder.sample_rate
@@ -206,10 +251,10 @@ class TTSProvider(TTSProviderBase):
 
                     if resp.status != 200:
                         logger.bind(tag=TAG).error(
-                            f"TTS请求失败: {resp.status}, {await resp.text()}"
+                            f"TTS request failed: {resp.status}, {await resp.text()}"
                         )
                         self.tts_audio_queue.put((SentenceType.LAST, [], None))
-                        return
+                        return False
 
                     self.pcm_buffer.clear()
                     self.tts_audio_queue.put((SentenceType.FIRST, [], text))
@@ -242,12 +287,11 @@ class TTSProvider(TTSProviderBase):
                                 base_resp = data.get("base_resp", {})
                                 status_code = base_resp.get("status_code", 0)
                                 if status_code != 0:
-                                    status_msg = base_resp.get("status_msg", "未知错误")
-                                    logger.bind(tag=TAG).error(
-                                        f"TTS请求失败, 错误码:{status_code}, 错误消息:{status_msg}"
+                                    self._log_error_response(
+                                        status_code, base_resp.get("status_msg", "unknown error")
                                     )
                                     self.tts_audio_queue.put((SentenceType.LAST, [], None))
-                                    return
+                                    return False
 
                                 status = data.get("data", {}).get("status", 1)
                                 audio_hex = data.get("data", {}).get("audio")
@@ -256,9 +300,10 @@ class TTSProvider(TTSProviderBase):
                                 if status == 1 and audio_hex:
                                     pcm_data = bytes.fromhex(audio_hex)
                                     self.pcm_buffer.extend(pcm_data)
+                                    received_audio = True
 
                             except json.JSONDecodeError as e:
-                                logger.bind(tag=TAG).error(f"JSON解析失败: {e}")
+                                logger.bind(tag=TAG).error(f"JSON parsing failed: {e}")
                                 continue
 
                         while len(self.pcm_buffer) >= frame_bytes:
@@ -268,6 +313,18 @@ class TTSProvider(TTSProviderBase):
                             self.opus_encoder.encode_pcm_to_opus_stream(
                                 frame, end_of_stream=False, callback=self.handle_opus
                             )
+
+                    # 未收到音频：可能是非SSE格式的错误响应（HTTP 200 + JSON错误）
+                    if not received_audio:
+                        error = parse_error_response(buffer)
+                        if error:
+                            self._log_error_response(*error)
+                        else:
+                            logger.bind(tag=TAG).error(
+                                f"TTS returned no audio data: {buffer[:300]!r}"
+                            )
+                        self.tts_audio_queue.put((SentenceType.LAST, [], None))
+                        return False
 
                     # flush 剩余不足一帧的数据
                     if self.pcm_buffer:
@@ -281,10 +338,12 @@ class TTSProvider(TTSProviderBase):
                     # 如果是最后一段，输出音频获取完毕
                     if is_last:
                         self._process_before_stop_play_files()
+                    return True
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
+            logger.bind(tag=TAG).error(f"TTS request error: {e}")
             self.tts_audio_queue.put((SentenceType.LAST, [], None))
+            return False
 
     async def close(self):
         """资源清理"""
@@ -304,18 +363,7 @@ class TTSProvider(TTSProviderBase):
         if self._correct_words_pattern:
             text = self._correct_words_pattern.sub(lambda m: self.correct_words[m.group(0)], text)
 
-        payload = {
-            "model": self.model,
-            "text": text,
-            "stream": True,
-            "voice_setting": self.voice_setting,
-            "pronunciation_dict": self.pronunciation_dict,
-            "audio_setting": self.audio_setting,
-        }
-
-        if type(self.timber_weights) is list and len(self.timber_weights) > 0:
-            payload["timber_weights"] = self.timber_weights
-            payload["voice_setting"]["voice_id"] = ""
+        payload = self._build_payload(text)
 
         headers = {
             "Content-Type": "application/json",
@@ -331,11 +379,16 @@ class TTSProvider(TTSProviderBase):
             ) as response:
                 if response.status_code != 200:
                     logger.bind(tag=TAG).error(
-                        f"TTS请求失败: {response.status_code}, {response.text}"
+                        f"TTS request failed: {response.status_code}, {response.text}"
                     )
                     return []
 
-                logger.info(f"TTS请求成功: {text}, 耗时: {time.time() - start_time}秒")
+                error = parse_error_response(response.content)
+                if error:
+                    self._log_error_response(*error)
+                    return []
+
+                logger.info(f"TTS request succeeded: {text}, took: {time.time() - start_time}s")
 
                 # 使用opus编码器处理PCM数据
                 opus_datas = []
@@ -352,7 +405,7 @@ class TTSProvider(TTSProviderBase):
                             audio_hex = data['data']['audio']
                             pcm_data.extend(bytes.fromhex(audio_hex))
                     except (json.JSONDecodeError, KeyError) as e:
-                        logger.bind(tag=TAG).warning(f"无效数据块: {e}")
+                        logger.bind(tag=TAG).warning(f"Invalid data chunk: {e}")
                         continue
 
                 # 计算每帧的字节数
@@ -379,5 +432,5 @@ class TTSProvider(TTSProviderBase):
                 return opus_datas
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
+            logger.bind(tag=TAG).error(f"TTS request error: {e}")
             return []

@@ -160,8 +160,8 @@ if check_installed; then
         
         # 删除特定镜像（考虑镜像可能不存在的情况）
         images=(
-            "ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:server_latest"
-            "ghcr.nju.edu.cn/xinnan-tech/xiaozhi-esp32-server:web_latest"
+            "ghcr.io/xinnan-tech/xiaozhi-esp32-server:server_latest"
+            "ghcr.io/xinnan-tech/xiaozhi-esp32-server:web_latest"
         )
         
         for image in "${images[@]}"; do
@@ -183,8 +183,8 @@ if check_installed; then
         fi
         
         # 下载最新版配置文件
-        check_and_download "/opt/xiaozhi-server/docker-compose_all.yml" "https://ghfast.top/https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/docker-compose_all.yml"
-        check_and_download "/opt/xiaozhi-server/data/.config.yaml" "https://ghfast.top/https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/config_from_api.yaml"
+        check_and_download "/opt/xiaozhi-server/docker-compose_all.yml" "https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/docker-compose_all.yml"
+        check_and_download "/opt/xiaozhi-server/data/.config.yaml" "https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/config_from_api.yaml"
         
         # 启动Docker服务
         echo "开始启动最新版本服务..."
@@ -214,10 +214,10 @@ if ! command -v docker &> /dev/null; then
     echo "------------------------------------------------------------"
     echo "未检测到Docker，正在安装..."
     
-    # 使用国内镜像源替代官方源
+    # 使用Docker官方源
     DISTRO=$(lsb_release -cs)
-    MIRROR_URL="https://mirrors.aliyun.com/docker-ce/linux/ubuntu"
-    GPG_URL="https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg"
+    MIRROR_URL="https://download.docker.com/linux/ubuntu"
+    GPG_URL="https://download.docker.com/linux/ubuntu/gpg"
     
     # 安装基础依赖
     apt update
@@ -257,14 +257,8 @@ fi
 
 # Docker镜像源配置
 MIRROR_OPTIONS=(
-    "1" "轩辕镜像 (推荐)"
-    "2" "腾讯云镜像源"
-    "3" "中科大镜像源"
-    "4" "网易163镜像源"
-    "5" "华为云镜像源"
-    "6" "阿里云镜像源"
-    "7" "自定义镜像源"
-    "8" "跳过配置"
+    "1" "跳过配置 (直连Docker Hub/ghcr.io, 推荐)"
+    "2" "自定义镜像源"
 )
 
 MIRROR_CHOICE=$(whiptail --title "选择Docker镜像源" --menu "请选择要使用的Docker镜像源" 20 60 10 \
@@ -274,14 +268,8 @@ MIRROR_CHOICE=$(whiptail --title "选择Docker镜像源" --menu "请选择要使
 }
 
 case $MIRROR_CHOICE in
-    1) MIRROR_URL="https://docker.xuanyuan.me" ;; 
-    2) MIRROR_URL="https://mirror.ccs.tencentyun.com" ;; 
-    3) MIRROR_URL="https://docker.mirrors.ustc.edu.cn" ;; 
-    4) MIRROR_URL="https://hub-mirror.c.163.com" ;; 
-    5) MIRROR_URL="https://05f073ad3c0010ea0f4bc00b7105ec20.mirror.swr.myhuaweicloud.com" ;; 
-    6) MIRROR_URL="https://registry.aliyuncs.com" ;; 
-    7) MIRROR_URL=$(whiptail --title "自定义镜像源" --inputbox "请输入完整的镜像源URL:" 10 60 3>&1 1>&2 2>&3) ;; 
-    8) MIRROR_URL="" ;; 
+    1) MIRROR_URL="" ;; 
+    2) MIRROR_URL=$(whiptail --title "自定义镜像源" --inputbox "请输入完整的镜像源URL:" 10 60 3>&1 1>&2 2>&3) ;; 
 esac
 
 if [ -n "$MIRROR_URL" ]; then
@@ -291,7 +279,7 @@ if [ -n "$MIRROR_URL" ]; then
     fi
     cat > /etc/docker/daemon.json <<EOF
 {
-    "dns": ["8.8.8.8", "114.114.114.114"],
+    "dns": ["8.8.8.8", "1.1.1.1"],
     "registry-mirrors": ["$MIRROR_URL"]
 }
 EOF
@@ -331,9 +319,10 @@ if [ ! -f "$MODEL_PATH" ]; then
         sleep 0.5
     done
     ) | whiptail --title "下载中" --gauge "开始下载语音识别模型..." 10 60 0
-    curl -fL --progress-bar https://modelscope.cn/models/iic/SenseVoiceSmall/resolve/master/model.pt -o "$MODEL_PATH" || {
-        whiptail --title "错误" --msgbox "model.pt文件下载失败" 10 50
-        exit 1
+    # SenseVoice仅在选择本地FunASR时需要（不支持越南语），下载失败不影响默认的云端ASR
+    curl -fL --progress-bar https://huggingface.co/FunAudioLLM/SenseVoiceSmall/resolve/main/model.pt -o "$MODEL_PATH" || {
+        rm -f "$MODEL_PATH"
+        whiptail --title "警告" --msgbox "model.pt文件下载失败，本地FunASR将不可用（不影响云端ASR）" 10 60
     }
 else
     echo "model.pt文件已存在，跳过下载"
@@ -341,8 +330,8 @@ fi
 
 # 如果不是升级完成，才执行下载
 if [ -z "$UPGRADE_COMPLETED" ]; then
-    check_and_download "/opt/xiaozhi-server/docker-compose_all.yml" "https://ghfast.top/https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/docker-compose_all.yml"
-    check_and_download "/opt/xiaozhi-server/data/.config.yaml" "https://ghfast.top/https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/config_from_api.yaml"
+    check_and_download "/opt/xiaozhi-server/docker-compose_all.yml" "https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/docker-compose_all.yml"
+    check_and_download "/opt/xiaozhi-server/data/.config.yaml" "https://raw.githubusercontent.com/xinnan-tech/xiaozhi-esp32-server/refs/heads/main/main/xiaozhi-server/config_from_api.yaml"
 fi
 
 # 启动Docker服务

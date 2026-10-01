@@ -21,7 +21,7 @@ const messages = {
 }
 
 // 当前使用的语言
-const currentLang = ref<Language>('zh_CN')
+const currentLang = ref<Language>('vi')
 
 // 初始化语言
 export function initI18n() {

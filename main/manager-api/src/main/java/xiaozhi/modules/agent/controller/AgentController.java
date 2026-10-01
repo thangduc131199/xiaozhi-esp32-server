@@ -1,5 +1,6 @@
 package xiaozhi.modules.agent.controller;
 
+import xiaozhi.common.utils.MessageUtils;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -164,7 +165,7 @@ public class AgentController {
             // 立即返回成功响应，不等待总结生成完成
             return new Result<Void>().ok(null);
         } catch (Exception e) {
-            return new Result<Void>().error("启动异步总结生成任务失败: " + e.getMessage());
+            return new Result<Void>().error(ErrorCode.SUMMARY_TASK_START_FAILED, MessageUtils.getMessage(ErrorCode.SUMMARY_TASK_START_FAILED, e.getMessage()));
         }
     }
 
@@ -228,7 +229,7 @@ public class AgentController {
 
         // 检查权限
         if (!agentService.checkAgentPermission(id, user.getId())) {
-            return new Result<List<AgentChatHistoryDTO>>().error("没有权限查看该智能体的聊天记录");
+            return new Result<List<AgentChatHistoryDTO>>().error(ErrorCode.CHAT_HISTORY_NO_PERMISSION);
         }
 
         // 查询聊天记录
@@ -246,7 +247,7 @@ public class AgentController {
 
         // 检查权限
         if (!agentService.checkAgentPermission(id, user.getId())) {
-            return new Result<List<AgentChatHistoryUserVO>>().error("没有权限查看该智能体的聊天记录");
+            return new Result<List<AgentChatHistoryUserVO>>().error(ErrorCode.CHAT_HISTORY_NO_PERMISSION);
         }
 
         // 查询聊天记录
@@ -272,7 +273,7 @@ public class AgentController {
         requireAudioPermission(audioId);
         byte[] audioData = agentChatAudioService.getAudio(audioId);
         if (audioData == null) {
-            return new Result<String>().error("音频不存在");
+            return new Result<String>().error(ErrorCode.AUDIO_NOT_FOUND);
         }
         String uuid = UUID.randomUUID().toString();
         redisUtils.set(RedisKeys.getAgentAudioIdKey(uuid), audioId, AUDIO_PLAY_TOKEN_EXPIRE_SECONDS);
@@ -305,7 +306,7 @@ public class AgentController {
     public Result<AgentTagEntity> createTag(@RequestBody Map<String, String> params) {
         String tagName = params.get("tagName");
         if (StringUtils.isBlank(tagName)) {
-            return new Result<AgentTagEntity>().error("标签名称不能为空");
+            return new Result<AgentTagEntity>().error(ErrorCode.AGENT_TAG_NAME_EMPTY);
         }
         AgentTagEntity tag = agentTagService.saveTag(tagName);
         return new Result<AgentTagEntity>().ok(tag);

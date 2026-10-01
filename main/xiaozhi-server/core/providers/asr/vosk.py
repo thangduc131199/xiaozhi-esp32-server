@@ -30,17 +30,17 @@ class ASRProvider(ASRProviderBase):
         """加载VOSK模型"""
         try:
             if not os.path.exists(self.model_path):
-                raise FileNotFoundError(f"VOSK模型路径不存在: {self.model_path}")
+                raise FileNotFoundError(f"VOSK model path does not exist: {self.model_path}")
                 
-            logger.bind(tag=TAG).info(f"正在加载VOSK模型: {self.model_path}")
+            logger.bind(tag=TAG).info(f"Loading VOSK model: {self.model_path}")
             self.model = vosk.Model(self.model_path)
 
             # 初始化VOSK识别器（采样率必须为16kHz）
             self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
 
-            logger.bind(tag=TAG).info("VOSK模型加载成功")
+            logger.bind(tag=TAG).info("VOSK model loaded")
         except Exception as e:
-            logger.bind(tag=TAG).error(f"加载VOSK模型失败: {e}")
+            logger.bind(tag=TAG).error(f"Failed to load VOSK model: {e}")
             raise
 
     async def speech_to_text(
@@ -50,13 +50,13 @@ class ASRProvider(ASRProviderBase):
         try:
             # 检查模型是否加载成功
             if not self.model:
-                logger.bind(tag=TAG).error("VOSK模型未加载，无法进行识别")
+                logger.bind(tag=TAG).error("VOSK model not loaded, cannot recognize")
                 return "", None
             
             if artifacts is None:
                 return "", None
             if not artifacts.pcm_bytes:
-                logger.bind(tag=TAG).warning("合并后的PCM数据为空")
+                logger.bind(tag=TAG).warning("Merged PCM data is empty")
                 return "", None
 
             start_time = time.time()
@@ -81,11 +81,11 @@ class ASRProvider(ASRProviderBase):
                 text_result += final_text
             
             logger.bind(tag=TAG).debug(
-                f"VOSK语音识别耗时: {time.time() - start_time:.3f}s | 结果: {text_result.strip()}"
+                f"VOSK ASR took: {time.time() - start_time:.3f}s | result: {text_result.strip()}"
             )
             
             return text_result.strip(), artifacts.file_path
             
         except Exception as e:
-            logger.bind(tag=TAG).error(f"VOSK语音识别失败: {e}")
+            logger.bind(tag=TAG).error(f"VOSK ASR failed: {e}")
             return "", None

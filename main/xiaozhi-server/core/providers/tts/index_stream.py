@@ -55,7 +55,7 @@ class TTSProvider(TTSProviderBase):
 
                 elif ContentType.FILE == message.content_type:
                     logger.bind(tag=TAG).info(
-                        f"添加音频文件到待播放列表: {message.content_file}"
+                        f"Adding audio file to playback list: {message.content_file}"
                     )
                     if message.content_file and os.path.exists(message.content_file):
                         # 先处理文件音频数据
@@ -69,7 +69,7 @@ class TTSProvider(TTSProviderBase):
                 continue
             except Exception as e:
                 logger.bind(tag=TAG).error(
-                    f"处理TTS文本失败: {str(e)}, 类型: {type(e).__name__}, 堆栈: {traceback.format_exc()}"
+                    f"Failed to process TTS text: {str(e)}, type: {type(e).__name__}, stack: {traceback.format_exc()}"
                 )
 
     def _process_remaining_text_stream(self, is_last=False):
@@ -100,17 +100,17 @@ class TTSProvider(TTSProviderBase):
                 asyncio.run(self.text_to_speak(text, is_last))
             except Exception as e:
                 logger.bind(tag=TAG).warning(
-                    f"语音生成失败{5 - max_repeat_time + 1}次: {original_text}，错误: {e}"
+                    f"Speech generation failed {5 - max_repeat_time + 1} times: {original_text}, error: {e}"
                 )
                 max_repeat_time -= 1
 
             if max_repeat_time > 0:
                 logger.bind(tag=TAG).info(
-                    f"语音生成成功: {original_text}，重试{5 - max_repeat_time}次"
+                    f"Speech generated: {original_text}, retries: {5 - max_repeat_time}"
                 )
             else:
                 logger.bind(tag=TAG).error(
-                    f"语音生成失败: {original_text}，请检查网络或服务是否正常"
+                    f"Speech generation failed: {original_text}, check the network or service"
                 )
         except Exception as e:
             logger.bind(tag=TAG).error(f"Failed to generate TTS file: {e}")
@@ -136,7 +136,7 @@ class TTSProvider(TTSProviderBase):
 
                     if resp.status != 200:
                         logger.bind(tag=TAG).error(
-                            f"TTS请求失败: {resp.status}, {await resp.text()}"
+                            f"TTS request failed: {resp.status}, {await resp.text()}"
                         )
                         self.tts_audio_queue.put((SentenceType.LAST, [], None))
                         return
@@ -176,7 +176,7 @@ class TTSProvider(TTSProviderBase):
                         self._process_before_stop_play_files()
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
+            logger.bind(tag=TAG).error(f"TTS request error: {e}")
             self.tts_audio_queue.put((SentenceType.LAST, [], None))
 
     def audio_to_pcm_data_stream(
@@ -219,11 +219,11 @@ class TTSProvider(TTSProviderBase):
             ) as response:
                 if response.status_code != 200:
                     logger.bind(tag=TAG).error(
-                        f"TTS请求失败: {response.status_code}, {response.text}"
+                        f"TTS request failed: {response.status_code}, {response.text}"
                     )
                     return []
 
-                logger.info(f"TTS请求成功: {text}, 耗时: {time.time() - start_time}秒")
+                logger.info(f"TTS request succeeded: {text}, took: {time.time() - start_time}s")
 
                 # 使用opus编码器处理PCM数据
                 opus_datas = []
@@ -254,5 +254,5 @@ class TTSProvider(TTSProviderBase):
                 return opus_datas
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"TTS请求异常: {e}")
+            logger.bind(tag=TAG).error(f"TTS request error: {e}")
             return []

@@ -69,14 +69,14 @@ def get_news_sources_from_config(conn):
     try:
         result = _get_newsnow_config(conn)
         if result:
-            logger.bind(tag=TAG).debug(f"使用配置的新闻源: {result}")
+            logger.bind(tag=TAG).debug(f"Using configured news sources: {result}")
             return result
 
-        logger.bind(tag=TAG).debug("未找到新闻源配置，使用默认配置")
+        logger.bind(tag=TAG).debug("News source config not found, using defaults")
         return DEFAULT_NEWS_SOURCES
 
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取新闻源配置失败: {e}，使用默认配置")
+        logger.bind(tag=TAG).error(f"Failed to get news source config: {e}, using defaults")
         return DEFAULT_NEWS_SOURCES
 
 
@@ -128,11 +128,11 @@ async def fetch_news_from_api(conn: "ConnectionHandler", source="thepaper"):
         if "items" in data:
             return data["items"]
         else:
-            logger.bind(tag=TAG).error(f"获取新闻API响应格式错误: {data}")
+            logger.bind(tag=TAG).error(f"Invalid news API response format: {data}")
             return []
 
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取新闻API失败: {e}")
+        logger.bind(tag=TAG).error(f"News API request failed: {e}")
         return []
 
 
@@ -159,12 +159,12 @@ async def fetch_news_detail(url):
 
         # 如果清理后的内容为空，返回提示信息
         if not clean_text or len(clean_text.strip()) == 0:
-            logger.bind(tag=TAG).warning(f"清理后的新闻内容为空: {url}")
+            logger.bind(tag=TAG).warning(f"News content is empty after cleaning: {url}")
             return "无法解析新闻详情内容，可能是网站结构特殊或内容受限。"
 
         return clean_text
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取新闻详情失败: {e}")
+        logger.bind(tag=TAG).error(f"Failed to fetch news details: {e}")
         return "无法获取详细内容"
 
 
@@ -209,7 +209,7 @@ async def get_news_from_newsnow(
                 )
 
             logger.bind(tag=TAG).debug(
-                f"获取新闻详情: {title}, 来源: {source_name}, URL={url}"
+                f"Fetching news details: {title}, source: {source_name}, URL={url}"
             )
 
             # 获取新闻详情
@@ -248,11 +248,11 @@ async def get_news_from_newsnow(
 
         # 如果找不到对应的英文ID，使用默认源
         if not english_source_id:
-            logger.bind(tag=TAG).warning(f"无效的新闻源: {source}，使用默认源澎湃新闻")
+            logger.bind(tag=TAG).warning(f"Invalid news source: {source}, falling back to default source (The Paper)")
             english_source_id = "thepaper"
             source = "澎湃新闻"
 
-        logger.bind(tag=TAG).info(f"获取新闻: 新闻源={source}({english_source_id})")
+        logger.bind(tag=TAG).info(f"Fetching news: source={source}({english_source_id})")
 
         # 获取新闻列表
         news_items = await fetch_news_from_api(conn, english_source_id)
@@ -288,7 +288,7 @@ async def get_news_from_newsnow(
         return ActionResponse(Action.REQLLM, news_report, None)
 
     except Exception as e:
-        logger.bind(tag=TAG).error(f"获取新闻出错: {e}")
+        logger.bind(tag=TAG).error(f"Error fetching news: {e}")
         return ActionResponse(
             Action.REQLLM, "抱歉，获取新闻时发生错误，请稍后再试。", None
         )

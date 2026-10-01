@@ -5,8 +5,10 @@ import random
 import difflib
 import traceback
 from pathlib import Path
+from core.utils import i18n
 from core.providers.tts.dto.dto import TTSMessageDTO, SentenceType, ContentType
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
+from plugins_func.functions.zing_mp3 import get_client
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,17 +18,21 @@ TAG = __name__
 
 MUSIC_CACHE = {}
 
+# Zing MP3 下载缓存目录（不能放在 tmp/ 下，TTS 播放完会删除 tmp/ 中的文件）
+ZING_CACHE_DIR = os.path.abspath("./cache/zing_music")
+ZING_CACHE_MAX_FILES = 50
+
 play_music_function_desc = {
     "type": "function",
     "function": {
         "name": "play_music",
-        "description": "当用户要求播放音乐、歌曲时调用。",
+        "description": "Call when the user wants to play music or a song.",
         "parameters": {
             "type": "object",
             "properties": {
                 "song_name": {
                     "type": "string",
-                    "description": "歌曲名称，如果用户没有指定具体歌名则为'random', 明确指定的时返回音乐的名字 示例: ```用户:播放两只老虎\n参数：两只老虎``` ```用户:播放音乐 \n参数：random ```",
+                    "description": "Song title as the user said it, may include the artist (e.g. 'Lạc trôi Sơn Tùng', 'Con cò bé bé'). Use 'random' if the user did not name a specific song.",
                 }
             },
             "required": ["song_name"],
@@ -41,14 +47,20 @@ async def play_music(conn: "ConnectionHandler", song_name: str):
         music_intent = (
             f"播放音乐 {song_name}" if song_name != "random" else "随机播放音乐"
         )
-        await handle_music_command(conn, music_intent)
+        played = await handle_music_command(conn, music_intent)
+        if not played:
+            return ActionResponse(
+                action=Action.RESPONSE, result="no music played", response=i18n.t(conn.config, "music_error")
+            )
         return ActionResponse(
-            action=Action.RECORD, result="指令已接收", response="正在为您播放音乐"
+            action=Action.RECORD,
+            result=f"{i18n.tr(conn.config, '指令已接收')}: {played}",
+            response=i18n.tr(conn.config, "正在为您播放音乐"),
         )
     except Exception as e:
-        conn.logger.bind(tag=TAG).error(f"处理音乐意图错误: {e}")
+        conn.logger.bind(tag=TAG).error(f"Error handling music intent: {e}")
         return ActionResponse(
-            action=Action.RESPONSE, result=str(e), response="播放音乐时出错了"
+            action=Action.RESPONSE, result=str(e), response=i18n.t(conn.config, "music_error")
         )
 
 
@@ -126,9 +138,16 @@ async def handle_music_command(conn: "ConnectionHandler", text):
     initialize_music_handler(conn)
     global MUSIC_CACHE
 
-    """处理音乐播放指令"""
+    """处理音乐播放指令，返回实际播放的歌曲名，未播放返回None"""
     clean_text = re.sub(r"[^\w\s]", "", text).strip()
-    conn.logger.bind(tag=TAG).debug(f"检查是否是音乐命令: {clean_text}")
+    conn.logger.bind(tag=TAG).debug(f"Checking whether this is a music command: {clean_text}")
+    potential_song = _extract_song_name(clean_text)
+
+    music_config = conn.config.get("plugins", {}).get("play_music") or {}
+    if str(music_config.get("source") or "zing").strip().lower() == "zing":
+        played = await play_zing_music(conn, music_config, potential_song)
+        if played:
+            return played
 
     # 尝试匹配具体歌名
     if os.path.exists(MUSIC_CACHE["music_dir"]):
@@ -139,33 +158,19 @@ async def handle_music_command(conn: "ConnectionHandler", text):
             )
             MUSIC_CACHE["scan_time"] = time.time()
 
-        potential_song = _extract_song_name(clean_text)
         if potential_song:
             best_match = _find_best_match(potential_song, MUSIC_CACHE["music_files"])
             if best_match:
-                conn.logger.bind(tag=TAG).info(f"找到最匹配的歌曲: {best_match}")
-                await play_local_music(conn, specific_file=best_match)
-                return True
+                conn.logger.bind(tag=TAG).info(f"Best matching song: {best_match}")
+                return await play_local_music(conn, specific_file=best_match)
     # 检查是否是通用播放音乐命令
-    await play_local_music(conn)
-    return True
+    return await play_local_music(conn)
 
 
-def _get_random_play_prompt(song_name):
-    """生成随机播放引导语"""
-    # 移除文件扩展名
-    clean_name = os.path.splitext(song_name)[0]
-    prompts = [
-        f"正在为您播放，《{clean_name}》",
-        f"请欣赏歌曲，《{clean_name}》",
-        f"即将为您播放，《{clean_name}》",
-        f"现在为您带来，《{clean_name}》",
-        f"让我们一起聆听，《{clean_name}》",
-        f"接下来请欣赏，《{clean_name}》",
-        f"此刻为您献上，《{clean_name}》",
-    ]
+def _get_random_play_prompt(song_name, config=None):
+    """生成随机播放引导语（song_name 已不含扩展名）"""
     # 直接使用random.choice，不设置seed
-    return random.choice(prompts)
+    return random.choice(i18n.t(config, "music_play_prompts")).format(name=song_name)
 
 
 async def play_local_music(conn: "ConnectionHandler", specific_file=None):
@@ -174,7 +179,7 @@ async def play_local_music(conn: "ConnectionHandler", specific_file=None):
     try:
         if not os.path.exists(MUSIC_CACHE["music_dir"]):
             conn.logger.bind(tag=TAG).error(
-                f"音乐目录不存在: " + MUSIC_CACHE["music_dir"]
+                f"Music directory does not exist: " + MUSIC_CACHE["music_dir"]
             )
             return
 
@@ -184,51 +189,106 @@ async def play_local_music(conn: "ConnectionHandler", specific_file=None):
             music_path = os.path.join(MUSIC_CACHE["music_dir"], specific_file)
         else:
             if not MUSIC_CACHE["music_files"]:
-                conn.logger.bind(tag=TAG).error("未找到MP3音乐文件")
+                conn.logger.bind(tag=TAG).error("No MP3 music files found")
                 return
             selected_music = random.choice(MUSIC_CACHE["music_files"])
             music_path = os.path.join(MUSIC_CACHE["music_dir"], selected_music)
 
         if not os.path.exists(music_path):
-            conn.logger.bind(tag=TAG).error(f"选定的音乐文件不存在: {music_path}")
+            conn.logger.bind(tag=TAG).error(f"Selected music file does not exist: {music_path}")
             return
-        text = _get_random_play_prompt(selected_music)
-        conn.tts.store_tts_text(conn.sentence_id, text)
-        # conn.dialogue.put(Message(role="assistant", content=text))
-
-        if conn.intent_type == "intent_llm":
-            conn.tts.tts_text_queue.put(
-                TTSMessageDTO(
-                    sentence_id=conn.sentence_id,
-                    sentence_type=SentenceType.FIRST,
-                    content_type=ContentType.ACTION,
-                )
-            )
-        conn.tts.tts_text_queue.put(
-            TTSMessageDTO(
-                sentence_id=conn.sentence_id,
-                sentence_type=SentenceType.MIDDLE,
-                content_type=ContentType.TEXT,
-                content_detail=text,
-            )
-        )
-        conn.tts.tts_text_queue.put(
-            TTSMessageDTO(
-                sentence_id=conn.sentence_id,
-                sentence_type=SentenceType.MIDDLE,
-                content_type=ContentType.FILE,
-                content_file=music_path,
-            )
-        )
-        if conn.intent_type == "intent_llm":
-            conn.tts.tts_text_queue.put(
-                TTSMessageDTO(
-                    sentence_id=conn.sentence_id,
-                    sentence_type=SentenceType.LAST,
-                    content_type=ContentType.ACTION,
-                )
-            )
+        song_name = os.path.splitext(selected_music)[0]
+        _enqueue_music(conn, song_name, music_path)
+        return song_name
 
     except Exception as e:
-        conn.logger.bind(tag=TAG).error(f"播放音乐失败: {str(e)}")
-        conn.logger.bind(tag=TAG).error(f"详细错误: {traceback.format_exc()}")
+        conn.logger.bind(tag=TAG).error(f"Failed to play music: {str(e)}")
+        conn.logger.bind(tag=TAG).error(f"Error details: {traceback.format_exc()}")
+
+
+def _enqueue_music(conn: "ConnectionHandler", song_name, music_path):
+    """播放引导语后播放音乐文件"""
+    text = _get_random_play_prompt(song_name, conn.config)
+    conn.tts.store_tts_text(conn.sentence_id, text)
+    # conn.dialogue.put(Message(role="assistant", content=text))
+
+    if conn.intent_type == "intent_llm":
+        conn.tts.tts_text_queue.put(
+            TTSMessageDTO(
+                sentence_id=conn.sentence_id,
+                sentence_type=SentenceType.FIRST,
+                content_type=ContentType.ACTION,
+            )
+        )
+    conn.tts.tts_text_queue.put(
+        TTSMessageDTO(
+            sentence_id=conn.sentence_id,
+            sentence_type=SentenceType.MIDDLE,
+            content_type=ContentType.TEXT,
+            content_detail=text,
+        )
+    )
+    conn.tts.tts_text_queue.put(
+        TTSMessageDTO(
+            sentence_id=conn.sentence_id,
+            sentence_type=SentenceType.MIDDLE,
+            content_type=ContentType.FILE,
+            content_file=music_path,
+        )
+    )
+    if conn.intent_type == "intent_llm":
+        conn.tts.tts_text_queue.put(
+            TTSMessageDTO(
+                sentence_id=conn.sentence_id,
+                sentence_type=SentenceType.LAST,
+                content_type=ContentType.ACTION,
+            )
+        )
+
+
+def _prune_zing_cache():
+    """只保留最近的若干首缓存歌曲"""
+    try:
+        files = [
+            os.path.join(ZING_CACHE_DIR, f)
+            for f in os.listdir(ZING_CACHE_DIR)
+            if f.endswith(".mp3")
+        ]
+        files.sort(key=os.path.getmtime, reverse=True)
+        for f in files[ZING_CACHE_MAX_FILES:]:
+            os.remove(f)
+    except Exception:
+        pass
+
+
+async def play_zing_music(conn: "ConnectionHandler", music_config, song_name=None):
+    """从 Zing MP3 搜索/随机挑选歌曲，下载后播放；失败返回None以便回退本地音乐"""
+    try:
+        client = get_client(music_config)
+        if song_name and song_name.lower() != "random":
+            songs = await client.search_songs(song_name)
+            if not songs:
+                conn.logger.bind(tag=TAG).warning(f"Zing: no playable song found for: {song_name}")
+                return None
+            song = songs[0]
+        else:
+            song = await client.random_chart_song()
+
+        song_id = song["encodeId"]
+        display_name = f"{song.get('title', '')} - {song.get('artistsNames', '')}".strip(" -")
+        conn.logger.bind(tag=TAG).info(f"Zing song selected: {display_name} ({song_id})")
+
+        os.makedirs(ZING_CACHE_DIR, exist_ok=True)
+        music_path = os.path.join(ZING_CACHE_DIR, f"{song_id}.mp3")
+        if os.path.exists(music_path) and os.path.getsize(music_path) > 0:
+            os.utime(music_path)
+        else:
+            stream_url = await client.get_stream_url(song_id)
+            await client.download(stream_url, music_path)
+            _prune_zing_cache()
+
+        _enqueue_music(conn, display_name, music_path)
+        return display_name
+    except Exception as e:
+        conn.logger.bind(tag=TAG).error(f"Zing music failed, falling back to local music: {e}")
+        return None

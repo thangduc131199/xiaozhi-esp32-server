@@ -73,7 +73,7 @@
         <div class="divider"></div>
       </teleport>
 
-      <el-form :model="formData.configJson" label-width="auto" label-position="left" class="custom-form">
+      <el-form :model="formData.configJson" label-width="150px" label-position="left" class="custom-form call-info-form">
         <div v-for="(row, rowIndex) in chunkedCallInfoFields" :key="rowIndex" class="form-row">
           <el-form-item v-for="field in row" :key="field.prop" :label="field.label" :prop="field.prop" style="flex: 1;">
             <el-input v-model="formData.configJson[field.prop]" :placeholder="field.placeholder"
@@ -161,7 +161,7 @@ export default {
             label: f.label,
             prop: f.key,
             type: f.type === 'password' ? 'password' : 'text',
-            placeholder: `请输入${f.key}`
+            placeholder: this.$t('ui.enterField', { field: f.key })
           }))
         }))
         this.providersLoaded = true
@@ -386,5 +386,15 @@ export default {
 }
 ::v-deep .el-input__inner {
   height: 32px;
+}
+
+/* 限制调用信息表单的标签宽度，长标签换行而不挤压输入框 */
+.call-info-form ::v-deep .el-form-item__label {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 18px;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
 }
 </style>

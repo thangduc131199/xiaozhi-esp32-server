@@ -1,4 +1,5 @@
 import httpx
+from core.utils import i18n
 from config.logger import setup_logging
 from plugins_func.functions.hass_init import initialize_hass_handler
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
@@ -40,12 +41,12 @@ async def hass_play_music(conn: "ConnectionHandler", entity_id="", media_content
     try:
         result = await handle_hass_play_music(conn, entity_id, media_content_id)
         return ActionResponse(
-            action=Action.RECORD, result="指令已接收", response=result
+            action=Action.RECORD, result=i18n.tr(conn.config, "指令已接收"), response=result
         )
     except Exception as e:
-        logger.bind(tag=TAG).error(f"处理音乐意图错误: {e}")
+        logger.bind(tag=TAG).error(f"Error handling music intent: {e}")
         return ActionResponse(
-            action=Action.RESPONSE, result=str(e), response="播放音乐时出错了"
+            action=Action.RESPONSE, result=str(e), response=i18n.tr(conn.config, "播放音乐时出错了")
         )
 
 
@@ -63,6 +64,6 @@ async def handle_hass_play_music(
         response = await client.post(url, headers=headers, json=data)
 
     if response.status_code == 200:
-        return f"正在播放{media_content_id}的音乐"
+        return i18n.tr(conn.config, "正在播放{media}的音乐", media=media_content_id)
     else:
-        return f"音乐播放失败，错误码: {response.status_code}"
+        return i18n.tr(conn.config, "音乐播放失败，错误码: {code}", code=response.status_code)

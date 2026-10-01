@@ -99,7 +99,7 @@ class TTSProvider(TTSProviderBase):
                 start_response = await ws.recv()
                 start_response = json.loads(start_response)  # 解析 JSON 响应
                 if start_response.get("status") != 0:
-                    raise Exception(f"连接失败: {start_response.get('signal')}")
+                    raise Exception(f"Connection failed: {start_response.get('signal')}")
 
                 session_id = start_response.get("session")
 
@@ -124,7 +124,7 @@ class TTSProvider(TTSProviderBase):
                             # 拼接音频数据（base64 编码的 PCM 数据）
                             audio_chunks += base64.b64decode(response.get("audio"))
                 except asyncio.TimeoutError:
-                    raise Exception(f"WebSocket 超时：等待音频数据超过 {timeout_seconds} 秒")
+                    raise Exception(f"WebSocket timeout: waited more than {timeout_seconds} seconds for audio data")
 
                 # 将拼接后的 PCM 数据转换为 WAV 格式
                 wav_data = await self.pcm_to_wav(audio_chunks)
@@ -144,7 +144,7 @@ class TTSProvider(TTSProviderBase):
                 if not self.delete_audio_file and self.save_path:
                     with open(self.save_path, "wb") as f:
                         f.write(wav_data)
-                    logger.bind(tag=TAG).info(f"音频文件已保存到: {self.save_path}")
+                    logger.bind(tag=TAG).info(f"Audio file saved to: {self.save_path}")
                 
                 # 返回或保存音频数据
                 if output_file:

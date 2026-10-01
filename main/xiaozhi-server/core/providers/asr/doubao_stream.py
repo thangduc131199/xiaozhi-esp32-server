@@ -76,7 +76,7 @@ class ASRProvider(ASRProviderBase):
                 self.is_processing = True
                 # 建立新的WebSocket连接
                 headers = self.token_auth() if self.auth_method == "token" else None
-                logger.bind(tag=TAG).info(f"正在连接ASR服务，headers: {headers}")
+                logger.bind(tag=TAG).info(f"Connecting to ASR service, headers: {headers}")
 
                 self.asr_ws = await websockets.connect(
                     self.ws_url,
@@ -96,24 +96,24 @@ class ASRProvider(ASRProviderBase):
                     full_client_request.extend((len(payload_bytes)).to_bytes(4, "big"))
                     full_client_request.extend(payload_bytes)
 
-                    logger.bind(tag=TAG).info(f"发送初始化请求: {request_params}")
+                    logger.bind(tag=TAG).info(f"Sending init request: {request_params}")
                     await self.asr_ws.send(full_client_request)
 
                     # 等待初始化响应
                     init_res = await self.asr_ws.recv()
                     result = self.parse_response(init_res)
-                    logger.bind(tag=TAG).info(f"收到初始化响应: {result}")
+                    logger.bind(tag=TAG).info(f"Received init response: {result}")
 
                     # 检查初始化响应
                     if "code" in result and result["code"] != 1000:
-                        error_msg = f"ASR服务初始化失败: {result.get('payload_msg', {}).get('error', '未知错误')}"
+                        error_msg = f"ASR service initialization failed: {result.get('payload_msg', {}).get('error', 'unknown error')}"
                         logger.bind(tag=TAG).error(error_msg)
                         raise Exception(error_msg)
 
                 except Exception as e:
-                    logger.bind(tag=TAG).error(f"发送初始化请求失败: {str(e)}")
+                    logger.bind(tag=TAG).error(f"Failed to send init request: {str(e)}")
                     if hasattr(e, "__cause__") and e.__cause__:
-                        logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                        logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
                     raise e
 
                 # 启动接收ASR结果的异步任务
@@ -132,13 +132,13 @@ class ASRProvider(ASRProviderBase):
                             await self.asr_ws.send(audio_request)
                         except Exception as e:
                             logger.bind(tag=TAG).info(
-                                f"发送缓存音频数据时发生错误: {e}"
+                                f"Error sending buffered audio data: {e}"
                             )
 
             except Exception as e:
-                logger.bind(tag=TAG).error(f"建立ASR连接失败: {str(e)}")
+                logger.bind(tag=TAG).error(f"Failed to establish ASR connection: {str(e)}")
                 if hasattr(e, "__cause__") and e.__cause__:
-                    logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                    logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
                 if self.asr_ws:
                     await self.asr_ws.close()
                     self.asr_ws = None
@@ -154,7 +154,7 @@ class ASRProvider(ASRProviderBase):
                 audio_request.extend(payload)
                 await self.asr_ws.send(audio_request)
             except Exception as e:
-                logger.bind(tag=TAG).info(f"发送音频数据时发生错误: {e}")
+                logger.bind(tag=TAG).info(f"Error sending audio data: {e}")
 
     async def _forward_asr_results(self, conn: "ConnectionHandler"):
         try:
@@ -164,7 +164,7 @@ class ASRProvider(ASRProviderBase):
                 try:
                     response = await self.asr_ws.recv()
                     result = self.parse_response(response)
-                    logger.bind(tag=TAG).debug(f"收到ASR结果: {result}")
+                    logger.bind(tag=TAG).debug(f"Received ASR result: {result}")
 
                     if "payload_msg" in result:
                         payload = result["payload_msg"]
@@ -184,7 +184,7 @@ class ASRProvider(ASRProviderBase):
                                 and not payload["result"].get("text")
                                 and conn.client_listen_mode != "manual"
                             ):
-                                logger.bind(tag=TAG).error(f"识别文本：空")
+                                logger.bind(tag=TAG).error(f"Recognized text: empty")
                                 self.text = ""
                                 if len(audio_data) > 15:  # 确保有足够音频数据
                                     await self.handle_voice_stop(conn, audio_data)
@@ -197,7 +197,7 @@ class ASRProvider(ASRProviderBase):
                                     continue
 
                                 if conn.client_listen_mode == "manual" and conn.client_voice_stop and len(audio_data) > 15:
-                                    logger.bind(tag=TAG).debug("消息结束收到停止信号，触发处理")
+                                    logger.bind(tag=TAG).debug("Stop signal received at end of message, processing")
                                     await self.handle_voice_stop(conn, audio_data)
                                     break
 
@@ -205,7 +205,7 @@ class ASRProvider(ASRProviderBase):
                                 if utterance.get("definite", False):
                                     current_text = utterance["text"]
                                     logger.bind(tag=TAG).info(
-                                        f"识别到文本: {current_text}"
+                                        f"Recognized text: {current_text}"
                                     )
 
                                     # 手动模式下累积识别结果
@@ -217,7 +217,7 @@ class ASRProvider(ASRProviderBase):
 
                                         # 在接收消息中途时收到停止信号
                                         if conn.client_voice_stop and len(audio_data) > 0:
-                                            logger.bind(tag=TAG).debug("消息中途收到停止信号，触发处理")
+                                            logger.bind(tag=TAG).debug("Stop signal received mid-message, processing")
                                             await self.handle_voice_stop(conn, audio_data)
                                         break
                                     else:
@@ -229,25 +229,25 @@ class ASRProvider(ASRProviderBase):
                                             )
                                     break
                         elif "error" in payload:
-                            error_msg = payload.get("error", "未知错误")
-                            logger.bind(tag=TAG).error(f"ASR服务返回错误: {error_msg}")
+                            error_msg = payload.get("error", "unknown error")
+                            logger.bind(tag=TAG).error(f"ASR service returned error: {error_msg}")
                             break
 
                 except websockets.ConnectionClosed:
-                    logger.bind(tag=TAG).info("ASR服务连接已关闭")
+                    logger.bind(tag=TAG).info("ASR service connection closed")
                     self.is_processing = False
                     break
                 except Exception as e:
-                    logger.bind(tag=TAG).error(f"处理ASR结果时发生错误: {str(e)}")
+                    logger.bind(tag=TAG).error(f"Error processing ASR result: {str(e)}")
                     if hasattr(e, "__cause__") and e.__cause__:
-                        logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                        logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
                     self.is_processing = False
                     break
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"ASR结果转发任务发生错误: {str(e)}")
+            logger.bind(tag=TAG).error(f"ASR result forwarding task error: {str(e)}")
             if hasattr(e, "__cause__") and e.__cause__:
-                logger.bind(tag=TAG).error(f"错误原因: {str(e.__cause__)}")
+                logger.bind(tag=TAG).error(f"Cause: {str(e.__cause__)}")
         finally:
             if self.asr_ws:
                 await self.asr_ws.close()
@@ -277,9 +277,9 @@ class ASRProvider(ASRProviderBase):
                 last_audio_request.extend(len(empty_payload).to_bytes(4, "big"))
                 last_audio_request.extend(empty_payload)
                 await self.asr_ws.send(last_audio_request)
-                logger.bind(tag=TAG).debug("已发送结束音频帧")
+                logger.bind(tag=TAG).debug("End-of-audio frame sent")
             except Exception as e:
-                logger.bind(tag=TAG).debug(f"发送结束音频帧时出错: {e}")
+                logger.bind(tag=TAG).debug(f"Error sending end-of-audio frame: {e}")
 
     def construct_request(self, reqid):
         req = {
@@ -315,7 +315,7 @@ class ASRProvider(ASRProviderBase):
             req["audio"]["language"] = self.language
 
         logger.bind(tag=TAG).debug(
-            f"构造请求参数: {json.dumps(req, ensure_ascii=False)}"
+            f"Built request params: {json.dumps(req, ensure_ascii=False)}"
         )
         return req
 
@@ -368,8 +368,8 @@ class ASRProvider(ASRProviderBase):
         try:
             # 检查响应长度
             if len(res) < 4:
-                logger.bind(tag=TAG).error(f"响应数据长度不足: {len(res)}")
-                return {"error": "响应数据长度不足"}
+                logger.bind(tag=TAG).error(f"Response data too short: {len(res)}")
+                return {"error": "Response data too short"}
 
             # 获取消息头
             header = res[:4]
@@ -398,16 +398,16 @@ class ASRProvider(ASRProviderBase):
                     # 无长度字段或长度无效，尝试直接解析
                     json_data = res[8:].decode("utf-8")
                 result = json.loads(json_data)
-                logger.bind(tag=TAG).debug(f"成功解析JSON响应: {result}")
+                logger.bind(tag=TAG).debug(f"Parsed JSON response: {result}")
                 return {"payload_msg": result}
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
-                logger.bind(tag=TAG).error(f"JSON解析失败: {str(e)}")
-                logger.bind(tag=TAG).error(f"原始数据: {res}")
+                logger.bind(tag=TAG).error(f"JSON parsing failed: {str(e)}")
+                logger.bind(tag=TAG).error(f"Raw data: {res}")
                 raise
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"解析响应失败: {str(e)}")
-            logger.bind(tag=TAG).error(f"原始响应数据: {res.hex()}")
+            logger.bind(tag=TAG).error(f"Failed to parse response: {str(e)}")
+            logger.bind(tag=TAG).error(f"Raw response data: {res.hex()}")
             raise
 
     async def speech_to_text(self, opus_data, session_id, artifacts=None):

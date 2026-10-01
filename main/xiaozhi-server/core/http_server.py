@@ -85,8 +85,8 @@ class SimpleHttpServer:
                 while True:
                     await asyncio.sleep(3600)  # 每隔 1 小时检查一次
         except Exception as e:
-            self.logger.bind(tag=TAG).error(f"HTTP服务器启动失败: {e}")
+            self.logger.bind(tag=TAG).error(f"HTTP server failed to start: {e}")
             import traceback
 
-            self.logger.bind(tag=TAG).error(f"错误堆栈: {traceback.format_exc()}")
+            self.logger.bind(tag=TAG).error(f"Stack trace: {traceback.format_exc()}")
             raise

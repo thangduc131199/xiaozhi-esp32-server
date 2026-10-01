@@ -20,4 +20,4 @@ class DefaultTTS(TTSProviderBase):
         return os.path.join(self.output_dir, f"{uuid.uuid4()}.wav")
 
     async def text_to_speak(self, text, output_file):
-        logger.bind(tag=TAG).error(f"无法实例化 TTS 服务，请检查配置")
+        logger.bind(tag=TAG).error(f"Unable to instantiate TTS service, check the config")

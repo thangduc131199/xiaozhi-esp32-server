@@ -1,12 +1,13 @@
 """统一工具处理器"""
 
 import json
+from core.utils import i18n
 from typing import Dict, List, Any, Optional
 from config.logger import setup_logging
 from plugins_func.loadplugins import auto_import_modules
 
 from .base import ToolType
-from plugins_func.register import Action, ActionResponse
+from plugins_func.register import Action, ActionResponse, tool_error_response
 from .unified_tool_manager import ToolManager
 from .server_plugins import ServerPluginExecutor
 from .server_mcp import ServerMCPExecutor
@@ -70,13 +71,13 @@ class UnifiedToolHandler:
             self._initialize_home_assistant()
 
             self.finish_init = True
-            self.logger.debug("统一工具处理器初始化完成")
+            self.logger.debug("Unified tool handler initialized")
 
             # 输出当前支持的所有工具列表
             self.current_support_functions()
 
         except Exception as e:
-            self.logger.error(f"统一工具处理器初始化失败: {e}")
+            self.logger.error(f"Unified tool handler initialization failed: {e}")
 
     async def _initialize_mcp_endpoint(self):
         """初始化MCP接入点"""
@@ -91,7 +92,7 @@ class UnifiedToolHandler:
                 and "你的" not in mcp_endpoint_url
                 and mcp_endpoint_url != "null"
             ):
-                self.logger.info(f"正在初始化MCP接入点: {mcp_endpoint_url}")
+                self.logger.info(f"Initializing MCP endpoint: {mcp_endpoint_url}")
                 mcp_endpoint_client = await connect_mcp_endpoint(
                     mcp_endpoint_url, self.conn
                 )
@@ -99,12 +100,12 @@ class UnifiedToolHandler:
                 if mcp_endpoint_client:
                     # 将MCP接入点客户端保存到连接对象中
                     self.conn.mcp_endpoint_client = mcp_endpoint_client
-                    self.logger.info("MCP接入点初始化成功")
+                    self.logger.info("MCP endpoint initialized")
                 else:
-                    self.logger.warning("MCP接入点初始化失败")
+                    self.logger.warning("MCP endpoint initialization failed")
 
         except Exception as e:
-            self.logger.error(f"初始化MCP接入点失败: {e}")
+            self.logger.error(f"Failed to initialize MCP endpoint: {e}")
 
     def _initialize_home_assistant(self):
         """初始化Home Assistant提示词"""
@@ -115,7 +116,7 @@ class UnifiedToolHandler:
         except ImportError:
             pass  # 忽略导入错误
         except Exception as e:
-            self.logger.error(f"初始化Home Assistant失败: {e}")
+            self.logger.error(f"Failed to initialize Home Assistant: {e}")
 
     def get_functions(self) -> List[Dict[str, Any]]:
         """获取所有工具的函数描述"""
@@ -124,13 +125,13 @@ class UnifiedToolHandler:
     def current_support_functions(self) -> List[str]:
         """获取当前支持的函数名称列表"""
         func_names = self.tool_manager.get_supported_tool_names()
-        self.logger.info(f"当前支持的函数列表: {func_names}")
+        self.logger.info(f"Currently supported functions: {func_names}")
         return func_names
 
     def upload_functions_desc(self):
         """刷新函数描述列表"""
         self.tool_manager.refresh_tools()
-        self.logger.info("函数描述列表已刷新")
+        self.logger.info("Function description list refreshed")
 
     def has_tool(self, tool_name: str) -> bool:
         """检查是否有指定工具"""
@@ -160,32 +161,32 @@ class UnifiedToolHandler:
                 try:
                     arguments = json.loads(arguments) if arguments else {}
                 except json.JSONDecodeError:
-                    self.logger.error(f"无法解析函数参数: {arguments}")
+                    self.logger.error(f"Unable to parse function arguments: {arguments}")
                     return ActionResponse(
                         action=Action.ERROR,
-                        response="无法解析函数参数",
+                        response=i18n.tr(self.conn.config, "无法解析函数参数"),
                     )
 
-            self.logger.debug(f"调用函数: {function_name}, 参数: {arguments}")
+            self.logger.debug(f"Calling function: {function_name}, arguments: {arguments}")
 
             # 发送工具调用显示消息到设备
             try:
                 await send_display_message(self.conn, f"% {function_name}")
             except Exception as e:
-                self.logger.warning(f"发送工具调用显示消息失败: {e}")
+                self.logger.warning(f"Failed to send tool-call display message: {e}")
 
             # 执行工具调用
             result = await self.tool_manager.execute_tool(function_name, arguments)
             return result
 
         except Exception as e:
-            self.logger.error(f"处理function call错误: {e}")
-            return ActionResponse(action=Action.ERROR, response=str(e))
+            self.logger.error(f"Error handling function call: {e}")
+            return tool_error_response(e)
 
     def _combine_responses(self, responses: List[ActionResponse]) -> ActionResponse:
         """合并多个函数调用的响应"""
         if not responses:
-            return ActionResponse(action=Action.NONE, response="无响应")
+            return ActionResponse(action=Action.NONE, response=i18n.tr(self.conn.config, "无响应"))
 
         # 如果有任何错误，返回第一个错误
         for response in responses:
@@ -219,7 +220,7 @@ class UnifiedToolHandler:
         """注册IoT设备工具"""
         self.device_iot_executor.register_iot_tools(descriptors)
         self.tool_manager.refresh_tools()
-        self.logger.info(f"注册了{len(descriptors)}个IoT设备的工具")
+        self.logger.info(f"Registered tools for {len(descriptors)} IoT devices")
 
     def get_tool_statistics(self) -> Dict[str, int]:
         """获取工具统计信息"""
@@ -237,6 +238,6 @@ class UnifiedToolHandler:
             ):
                 await self.conn.mcp_endpoint_client.close()
 
-            self.logger.info("工具处理器清理完成")
+            self.logger.info("Tool handler cleanup complete")
         except Exception as e:
-            self.logger.error(f"工具处理器清理失败: {e}")
+            self.logger.error(f"Tool handler cleanup failed: {e}")

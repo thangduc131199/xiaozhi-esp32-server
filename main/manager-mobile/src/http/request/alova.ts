@@ -62,7 +62,7 @@ const alovaInstance = createAlova({
     // 检查混合内容错误（HTTPS页面请求HTTP接口）
     const currentProtocol = typeof window !== 'undefined' && window.location.protocol
     const requestProtocol = method.baseURL?.split(':')[0]
-    const currentLang = langMap[uni.getStorageSync('app_language') as Language || 'zh_CN']
+    const currentLang = langMap[uni.getStorageSync('app_language') as Language || 'vi']
     if (currentProtocol === 'https:' && requestProtocol === 'http') {
       const errorMessage = '无法配置http协议地址,请检查接口地址'
       throw new Error(errorMessage)

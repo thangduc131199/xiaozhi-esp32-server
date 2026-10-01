@@ -38,18 +38,18 @@ def setup_proxy_env(http_proxy: str | None, https_proxy: str | None):
         ok_http = test_proxy(http_proxy, test_http_url)
         if ok_http:
             os.environ["HTTP_PROXY"] = http_proxy
-            log.bind(tag=TAG).info(f"配置提供的Gemini HTTPS代理连通成功: {http_proxy}")
+            log.bind(tag=TAG).info(f"Configured Gemini HTTPS proxy is reachable: {http_proxy}")
         else:
-            log.bind(tag=TAG).warning(f"配置提供的Gemini HTTP代理不可用: {http_proxy}")
+            log.bind(tag=TAG).warning(f"Configured Gemini HTTP proxy is unavailable: {http_proxy}")
 
     if https_proxy:
         ok_https = test_proxy(https_proxy, test_https_url)
         if ok_https:
             os.environ["HTTPS_PROXY"] = https_proxy
-            log.bind(tag=TAG).info(f"配置提供的Gemini HTTPS代理连通成功: {https_proxy}")
+            log.bind(tag=TAG).info(f"Configured Gemini HTTPS proxy is reachable: {https_proxy}")
         else:
             log.bind(tag=TAG).warning(
-                f"配置提供的Gemini HTTPS代理不可用: {https_proxy}"
+                f"Configured Gemini HTTPS proxy is unavailable: {https_proxy}"
             )
 
     # 如果https_proxy不可用，但http_proxy可用且能走通https，则复用http_proxy作为https_proxy
@@ -57,13 +57,13 @@ def setup_proxy_env(http_proxy: str | None, https_proxy: str | None):
         if test_proxy(http_proxy, test_https_url):
             os.environ["HTTPS_PROXY"] = http_proxy
             ok_https = True
-            log.bind(tag=TAG).info(f"复用HTTP代理作为HTTPS代理: {http_proxy}")
+            log.bind(tag=TAG).info(f"Reusing HTTP proxy as HTTPS proxy: {http_proxy}")
 
     if not ok_http and not ok_https:
         log.bind(tag=TAG).error(
-            f"Gemini 代理设置失败: HTTP 和 HTTPS 代理都不可用，请检查配置"
+            f"Gemini proxy setup failed: neither HTTP nor HTTPS proxy is available, check the config"
         )
-        raise RuntimeError("HTTP 和 HTTPS 代理都不可用，请检查配置")
+        raise RuntimeError("Neither HTTP nor HTTPS proxy is available, check the config")
 
 
 class LLMProvider(LLMProviderBase):
@@ -79,11 +79,11 @@ class LLMProvider(LLMProviderBase):
 
         if http_proxy or https_proxy:
             log.bind(tag=TAG).info(
-                f"检测到Gemini代理配置，开始测试代理连通性和设置代理环境..."
+                f"Gemini proxy config detected, testing proxy connectivity and setting proxy env..."
             )
             setup_proxy_env(http_proxy, https_proxy)
             log.bind(tag=TAG).info(
-                f"Gemini 代理设置成功 - HTTP: {http_proxy}, HTTPS: {https_proxy}"
+                f"Gemini proxy set up - HTTP: {http_proxy}, HTTPS: {https_proxy}"
             )
         # 配置API密钥
         genai.configure(api_key=self.api_key)

@@ -122,7 +122,7 @@ class ASRProvider(ASRProviderBase):
                 self.access_key_id, self.access_key_secret
             )
             if not expire_time_str:
-                raise ValueError("无法获取有效的Token过期时间")
+                raise ValueError("Unable to get a valid token expiry time")
 
             try:
                 # 统一转换为字符串处理
@@ -134,13 +134,13 @@ class ASRProvider(ASRProviderBase):
                     expire_time = datetime.strptime(expire_str, "%Y-%m-%dT%H:%M:%SZ")
                 self.expire_time = expire_time.timestamp() - 60
             except Exception as e:
-                raise ValueError(f"无效的过期时间格式: {expire_str}") from e
+                raise ValueError(f"Invalid expiry time format: {expire_str}") from e
 
         else:
             self.expire_time = None
 
         if not self.token:
-            raise ValueError("无法获取有效的访问Token")
+            raise ValueError("Unable to get a valid access token")
 
     def _is_token_expired(self):
         """检查Token是否过期"""
@@ -198,18 +198,18 @@ class ASRProvider(ASRProviderBase):
 
                 if status == 20000000:
                     result = body_json.get("result", "")
-                    logger.bind(tag=TAG).debug(f"ASR结果: {result}")
+                    logger.bind(tag=TAG).debug(f"ASR result: {result}")
                     return result
                 else:
-                    logger.bind(tag=TAG).error(f"ASR失败，状态码: {status}")
+                    logger.bind(tag=TAG).error(f"ASR failed, status code: {status}")
                     return None
 
             except ValueError:
-                logger.bind(tag=TAG).error("响应不是JSON格式")
+                logger.bind(tag=TAG).error("Response is not JSON")
                 return None
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"ASR请求失败: {e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"ASR request failed: {e}", exc_info=True)
             return None
 
     async def speech_to_text(
@@ -217,7 +217,7 @@ class ASRProvider(ASRProviderBase):
     ) -> Tuple[Optional[str], Optional[str]]:
         """将语音数据转换为文本"""
         if self._is_token_expired():
-            logger.warning("Token已过期，正在自动刷新...")
+            logger.warning("Token expired, refreshing automatically...")
             self._refresh_token()
 
         try:
@@ -232,5 +232,5 @@ class ASRProvider(ASRProviderBase):
             return "", artifacts.file_path
 
         except Exception as e:
-            logger.bind(tag=TAG).error(f"语音识别失败: {e}", exc_info=True)
+            logger.bind(tag=TAG).error(f"Speech recognition failed: {e}", exc_info=True)
             return "", None

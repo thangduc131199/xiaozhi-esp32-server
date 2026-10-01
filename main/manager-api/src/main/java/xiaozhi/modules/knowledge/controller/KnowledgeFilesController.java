@@ -150,14 +150,14 @@ public class KnowledgeFilesController {
 
         List<String> documentIds = requestBody.get("document_ids");
         if (documentIds == null || documentIds.isEmpty()) {
-            return new Result<Void>().error("document_ids参数不能为空");
+            return new Result<Void>().error(ErrorCode.DOCUMENT_IDS_EMPTY);
         }
 
         boolean success = knowledgeFilesService.parseDocuments(datasetId, documentIds);
         if (success) {
             return new Result<Void>();
         } else {
-            return new Result<Void>().error("文档解析失败，文档可能正在处理中");
+            return new Result<Void>().error(ErrorCode.DOCUMENT_PARSE_FAILED);
         }
     }
 

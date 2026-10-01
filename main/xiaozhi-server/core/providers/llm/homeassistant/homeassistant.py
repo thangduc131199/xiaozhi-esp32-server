@@ -56,9 +56,9 @@ class LLMProvider(LLMProviderBase):
         if speech:
             yield speech
         else:
-            logger.bind(tag=TAG).warning("API 返回数据中没有 speech 内容")
+            logger.bind(tag=TAG).warning("API response contains no speech content")
 
     def response_with_functions(self, session_id, dialogue, functions=None):
         logger.bind(tag=TAG).error(
-            f"homeassistant不支持（function call），建议使用其他意图识别"
+            f"homeassistant does not support function calls, use another intent recognition method"
         )

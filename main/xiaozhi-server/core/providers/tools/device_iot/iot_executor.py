@@ -2,6 +2,7 @@
 
 import json
 import asyncio
+from core.utils import i18n
 from typing import Dict, Any
 from ..base import ToolType, ToolDefinition, ToolExecutor
 from plugins_func.register import Action, ActionResponse
@@ -20,7 +21,7 @@ class DeviceIoTExecutor(ToolExecutor):
         """执行设备端IoT工具"""
         if not self.has_tool(tool_name):
             return ActionResponse(
-                action=Action.NOTFOUND, response=f"IoT工具 {tool_name} 不存在"
+                action=Action.NOTFOUND, response=i18n.tr(conn.config, "IoT工具 {name} 不存在", name=tool_name)
             )
 
         try:
@@ -36,7 +37,7 @@ class DeviceIoTExecutor(ToolExecutor):
                     if value is not None:
                         # 处理响应模板
                         response_success = arguments.get(
-                            "response_success", "查询成功：{value}"
+                            "response_success", i18n.tr(conn.config, "查询成功：{value}")
                         )
                         response = response_success.replace("{value}", str(value))
 
@@ -46,7 +47,8 @@ class DeviceIoTExecutor(ToolExecutor):
                         )
                     else:
                         response_failure = arguments.get(
-                            "response_failure", f"无法获取{device_name}的状态"
+                            "response_failure",
+                            i18n.tr(conn.config, "无法获取{name}的状态", name=device_name),
                         )
                         return ActionResponse(
                             action=Action.ERROR, response=response_failure
@@ -73,7 +75,7 @@ class DeviceIoTExecutor(ToolExecutor):
                     # 等待状态更新
                     await asyncio.sleep(0.1)
 
-                    response_success = arguments.get("response_success", "操作成功")
+                    response_success = arguments.get("response_success", i18n.tr(conn.config, "操作成功"))
 
                     # 处理响应中的占位符
                     for param_name, param_value in control_params.items():
@@ -93,10 +95,10 @@ class DeviceIoTExecutor(ToolExecutor):
                         result=response_success,
                     )
 
-            return ActionResponse(action=Action.ERROR, response="无法解析IoT工具名称")
+            return ActionResponse(action=Action.ERROR, response=i18n.tr(conn.config, "无法解析IoT工具名称"))
 
         except Exception as e:
-            response_failure = arguments.get("response_failure", "操作失败")
+            response_failure = arguments.get("response_failure", i18n.tr(conn.config, "操作失败"))
             return ActionResponse(action=Action.ERROR, response=response_failure)
 
     async def _get_iot_status(self, device_name: str, property_name: str):
@@ -130,7 +132,7 @@ class DeviceIoTExecutor(ToolExecutor):
                         await self.conn.websocket.send(send_message)
                         return
 
-        raise Exception(f"未找到设备{device_name}的方法{method_name}")
+        raise Exception(f"Method {method_name} not found on device {device_name}")
 
     def register_iot_tools(self, descriptors: list):
         """注册IoT工具"""
@@ -147,17 +149,17 @@ class DeviceIoTExecutor(ToolExecutor):
                         "type": "function",
                         "function": {
                             "name": tool_name,
-                            "description": f"查询{device_desc}的{prop_info['description']}",
+                            "description": f"Query {prop_info['description']} of {device_desc}",
                             "parameters": {
                                 "type": "object",
                                 "properties": {
                                     "response_success": {
                                         "type": "string",
-                                        "description": f"查询成功时的友好回复，必须使用{{value}}作为占位符表示查询到的值",
+                                        "description": "Friendly reply when the query succeeds; must use {value} as the placeholder for the queried value, in the user's language",
                                     },
                                     "response_failure": {
                                         "type": "string",
-                                        "description": f"查询失败时的友好回复",
+                                        "description": "Friendly reply when the query fails, in the user's language",
                                     },
                                 },
                                 "required": ["response_success", "response_failure"],
@@ -200,11 +202,11 @@ class DeviceIoTExecutor(ToolExecutor):
                         {
                             "response_success": {
                                 "type": "string",
-                                "description": "操作成功时的友好回复",
+                                "description": "Friendly reply when the operation succeeds, in the user's language",
                             },
                             "response_failure": {
                                 "type": "string",
-                                "description": "操作失败时的友好回复",
+                                "description": "Friendly reply when the operation fails, in the user's language",
                             },
                         }
                     )

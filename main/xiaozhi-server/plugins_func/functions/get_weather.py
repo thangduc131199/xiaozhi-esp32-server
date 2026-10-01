@@ -2,6 +2,7 @@ import httpx
 from bs4 import BeautifulSoup
 from config.logger import setup_logging
 from plugins_func.register import register_function, ToolType, ActionResponse, Action
+from core.utils import i18n
 from core.utils.util import get_ip_info
 from typing import TYPE_CHECKING
 
@@ -16,7 +17,7 @@ GET_WEATHER_FUNCTION_DESC = {
     "function": {
         "name": "get_weather",
         "description": (
-            "获取某个地点的天气，用户应提供一个位置，比如用户说杭州天气，参数为：杭州。"
+            "获取某个地点的天气，用户应提供一个位置，比如用户说河内天气，参数为：Hà Nội。"
             "如果用户说的是省份，默认用省会城市。如果用户说的不是省份或城市而是一个地名，默认用该地所在省份的省会城市。"
             "重要：本地未来7天天气已在上下文中提供，用户未指明其他城市时绝对不要调用此工具。"
         ),
@@ -25,11 +26,11 @@ GET_WEATHER_FUNCTION_DESC = {
             "properties": {
                 "location": {
                     "type": "string",
-                    "description": "地点名，例如杭州。可选参数，如果不提供则不传",
+                    "description": "地点名，例如Hà Nội、Đà Nẵng、杭州。可选参数，如果不提供则不传",
                 },
                 "lang": {
                     "type": "string",
-                    "description": "返回用户使用的语言code，例如zh_CN/zh_HK/en_US/ja_JP等，默认zh_CN",
+                    "description": "返回用户使用的语言code，例如vi_VN/zh_CN/zh_HK/en_US/ja_JP等",
                 },
             },
             "required": ["lang"],
@@ -111,14 +112,115 @@ WEATHER_CODE_MAP = {
 }
 
 
-async def fetch_city_info(location, api_key, api_host):
-    url = f"https://{api_host}/geo/v2/city/lookup?key={api_key}&location={location}&lang=zh"
+# Open-Meteo 天气代码（WMO） https://open-meteo.com/en/docs
+WMO_CODE_MAP = {
+    "vi": {
+        0: "Trời quang", 1: "Chủ yếu quang đãng", 2: "Có mây rải rác", 3: "Nhiều mây",
+        45: "Sương mù", 48: "Sương mù đóng băng",
+        51: "Mưa phùn nhẹ", 53: "Mưa phùn", 55: "Mưa phùn dày", 56: "Mưa phùn băng", 57: "Mưa phùn băng",
+        61: "Mưa nhỏ", 63: "Mưa vừa", 65: "Mưa to", 66: "Mưa băng", 67: "Mưa băng",
+        71: "Tuyết nhẹ", 73: "Tuyết", 75: "Tuyết dày", 77: "Hạt tuyết",
+        80: "Mưa rào nhẹ", 81: "Mưa rào", 82: "Mưa rào rất to", 85: "Mưa tuyết", 86: "Mưa tuyết",
+        95: "Dông", 96: "Dông kèm mưa đá", 99: "Dông kèm mưa đá",
+    },
+    "zh": {
+        0: "晴", 1: "大部晴朗", 2: "局部多云", 3: "阴",
+        45: "雾", 48: "冻雾",
+        51: "小毛毛雨", 53: "毛毛雨", 55: "大毛毛雨", 56: "冻毛毛雨", 57: "冻毛毛雨",
+        61: "小雨", 63: "中雨", 65: "大雨", 66: "冻雨", 67: "冻雨",
+        71: "小雪", 73: "中雪", 75: "大雪", 77: "雪粒",
+        80: "小阵雨", 81: "阵雨", 82: "强阵雨", 85: "阵雪", 86: "阵雪",
+        95: "雷暴", 96: "雷暴伴冰雹", 99: "雷暴伴冰雹",
+    },
+}
+
+WEATHER_TEXT = {
+    "vi": {
+        "not_found": "Không tìm thấy địa điểm: {location}, vui lòng kiểm tra lại tên địa điểm",
+        "failed": "Lấy thông tin thời tiết thất bại",
+        "location": "Địa điểm bạn hỏi: {name}",
+        "current": "Thời tiết hiện tại: {weather}, nhiệt độ {temp}°C (cảm giác như {feels}°C), độ ẩm {humidity}%, gió {wind} km/h",
+        "forecast": "Dự báo 7 ngày tới:",
+        "day": "{date}: {weather}, nhiệt độ {low}~{high}°C, khả năng mưa {rain}%",
+        "unknown": "Không rõ",
+    },
+    "zh": {
+        "not_found": "未找到相关的城市: {location}，请确认地点是否正确",
+        "failed": "请求失败",
+        "location": "您查询的位置是：{name}",
+        "current": "当前天气: {weather}，气温 {temp}°C（体感 {feels}°C），湿度 {humidity}%，风速 {wind} km/h",
+        "forecast": "未来7天预报：",
+        "day": "{date}: {weather}，气温 {low}~{high}°C，降水概率 {rain}%",
+        "unknown": "未知",
+    },
+}
+
+
+async def get_weather_open_meteo(location: str, lang: str):
+    """使用Open-Meteo获取天气（免费、无需API Key），返回天气报告文本或None"""
+    text = WEATHER_TEXT.get(lang, WEATHER_TEXT["vi"])
+    codes = WMO_CODE_MAP.get(lang, WMO_CODE_MAP["vi"])
+    timeout = httpx.Timeout(10.0, connect=3.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        geo = (
+            await client.get(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params={"name": location, "count": 1, "language": lang, "format": "json"},
+            )
+        ).json()
+        results = geo.get("results") or []
+        if not results:
+            return text["not_found"].format(location=location)
+        place = results[0]
+        forecast = (
+            await client.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": place["latitude"],
+                    "longitude": place["longitude"],
+                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                    "timezone": "auto",
+                    "forecast_days": 7,
+                },
+            )
+        ).json()
+
+    name_parts = []
+    for part in (place.get("name"), place.get("admin1"), place.get("country")):
+        if part and part not in name_parts:
+            name_parts.append(part)
+    name = ", ".join(name_parts)
+    current = forecast.get("current", {})
+    report = text["location"].format(name=name) + "\n\n"
+    report += text["current"].format(
+        weather=codes.get(current.get("weather_code"), text["unknown"]),
+        temp=current.get("temperature_2m"),
+        feels=current.get("apparent_temperature"),
+        humidity=current.get("relative_humidity_2m"),
+        wind=current.get("wind_speed_10m"),
+    )
+    report += "\n\n" + text["forecast"] + "\n"
+    daily = forecast.get("daily", {})
+    for i, date in enumerate(daily.get("time", [])):
+        report += text["day"].format(
+            date=date,
+            weather=codes.get(daily["weather_code"][i], text["unknown"]),
+            low=daily["temperature_2m_min"][i],
+            high=daily["temperature_2m_max"][i],
+            rain=daily["precipitation_probability_max"][i],
+        ) + "\n"
+    return report
+
+
+async def fetch_city_info(location, api_key, api_host, lang="zh"):
+    url = f"https://{api_host}/geo/v2/city/lookup?key={api_key}&location={location}&lang={lang}"
     async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as client:
         response = await client.get(url, headers=HEADERS)
     data = response.json()
     if data.get("error") is not None:
         logger.bind(tag=TAG).error(
-            f"获取天气失败，原因：{data.get('error', {}).get('detail')}"
+            f"Failed to get weather, reason: {data.get('error', {}).get('detail')}"
         )
         return None
     return data.get("location", [])[0] if data.get("location") else None
@@ -162,13 +264,17 @@ def parse_weather_info(soup):
 
 
 @register_function("get_weather", GET_WEATHER_FUNCTION_DESC, ToolType.SYSTEM_CTL)
-async def get_weather(conn: "ConnectionHandler", location: str = None, lang: str = "zh_CN"):
+async def get_weather(conn: "ConnectionHandler", location: str = None, lang: str = None):
     from core.utils.cache.manager import cache_manager, CacheType
 
     weather_config = conn.config.get("plugins", {}).get("get_weather", {})
+    # 天气数据源：openmeteo（默认，免费无需Key，全球可用）/ qweather（和风天气）
+    provider = weather_config.get("provider") or "openmeteo"
     api_host = weather_config.get("api_host", "mj7p3y7naa.re.qweatherapi.com")
     api_key = weather_config.get("api_key", "a861d0d5e7bf4ee1a83d9a9e4f96d4da")
-    default_location = weather_config.get("default_location", "广州")
+    default_location = weather_config.get("default_location", "Hà Nội")
+    # 报告语种跟随服务端默认语种
+    report_lang = i18n.get_language(conn.config)
     client_ip = conn.client_ip
 
     # 优先使用用户提供的location参数
@@ -192,38 +298,56 @@ async def get_weather(conn: "ConnectionHandler", location: str = None, lang: str
             # 若无IP，使用默认位置
             location = default_location
     # 尝试从缓存获取完整天气报告
-    weather_cache_key = f"full_weather_{location}_{lang}"
+    weather_cache_key = f"full_weather_{provider}_{location}_{report_lang}"
     cached_weather_report = cache_manager.get(CacheType.WEATHER, weather_cache_key)
     if cached_weather_report:
         return ActionResponse(Action.REQLLM, cached_weather_report, None)
 
+    if provider == "openmeteo":
+        try:
+            weather_report = await get_weather_open_meteo(location, report_lang)
+        except Exception as e:
+            logger.bind(tag=TAG).error(f"Open-Meteo weather request failed: {e}")
+            weather_report = None
+        if not weather_report:
+            return ActionResponse(
+                Action.REQLLM, None, WEATHER_TEXT[report_lang]["failed"]
+            )
+        cache_manager.set(CacheType.WEATHER, weather_cache_key, weather_report)
+        return ActionResponse(Action.REQLLM, weather_report, None)
+
     # 缓存未命中，获取实时天气数据
-    city_info = await fetch_city_info(location, api_key, api_host)
+    city_info = await fetch_city_info(location, api_key, api_host, report_lang)
     if not city_info:
         return ActionResponse(
-            Action.REQLLM, f"未找到相关的城市: {location}，请确认地点是否正确", None
+            Action.REQLLM, i18n.tr(conn.config, "未找到相关的城市: {location}，请确认地点是否正确", location=location), None
         )
     soup = await fetch_weather_page(city_info["fxLink"])
     if not soup:
-        return ActionResponse(Action.REQLLM, None, "请求失败")
+        return ActionResponse(Action.REQLLM, None, i18n.tr(conn.config, "请求失败"))
     city_name, current_abstract, current_basic, temps_list = parse_weather_info(soup)
 
-    weather_report = f"您查询的位置是：{city_name}\n\n当前天气: {current_abstract}\n"
+    weather_report = (
+        i18n.tr(conn.config, "您查询的位置是：{name}", name=city_name)
+        + "\n\n"
+        + i18n.tr(conn.config, "当前天气: {weather}", weather=current_abstract)
+        + "\n"
+    )
 
     # 添加有效的当前天气参数
     if current_basic:
-        weather_report += "详细参数：\n"
+        weather_report += i18n.tr(conn.config, "详细参数：") + "\n"
         for key, value in current_basic.items():
             if value != "0":  # 过滤无效值
                 weather_report += f"  · {key}: {value}\n"
 
     # 添加7天预报
-    weather_report += "\n未来7天预报：\n"
+    weather_report += "\n" + i18n.tr(conn.config, "未来7天预报：") + "\n"
     for date, weather, high, low in temps_list:
-        weather_report += f"{date}: {weather}，气温 {low}~{high}\n"
+        weather_report += i18n.tr(conn.config, "{date}: {weather}，气温 {low}~{high}", date=date, weather=weather, low=low, high=high) + "\n"
 
     # 提示语
-    weather_report += "\n（如需某一天的具体天气，请告诉我日期）"
+    weather_report += "\n" + i18n.tr(conn.config, "（如需某一天的具体天气，请告诉我日期）")
 
     # 缓存完整的天气报告
     cache_manager.set(CacheType.WEATHER, weather_cache_key, weather_report)
